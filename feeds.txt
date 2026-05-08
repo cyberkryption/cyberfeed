@@ -1,0 +1,16 @@
+# CyberFeed - Feed Sources
+# Format: Name | URL   (or just a bare URL — the hostname will be used as the name)
+# Lines starting with '#' are ignored.
+
+CVE High and Critical            | https://cvefeed.io/rssfeed/severity/high.xml
+CVE Feeds Newsroom               | https://cvefeed.io/rssfeed/newsroom.xml
+NCSC Threat Reports              | https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml
+Microsoft Security Blog          | https://www.microsoft.com/en-us/security/blog/feed/
+Risky Business                   | https://risky.biz/feeds/risky-business-news
+SANS Internet Storm Center       | https://isc.sans.edu/rssfeed.xml
+PortSwigger Research             | https://portswigger.net/research/rss
+AWS Security Blog                | https://aws.amazon.com/blogs/security/feed/
+TrustedSec                       | https://www.trustedsec.com/feed.rss
+Snyk Security                    | https://snyk.io/blog/feed/
+Industrial Cyber                 | https://industrialcyber.co/feed/
+Didier Stevens Blog              | https://blog.didierstevens.com/feed/
