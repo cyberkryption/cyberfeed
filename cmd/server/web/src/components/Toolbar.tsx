@@ -1,5 +1,5 @@
-import { Group, TextInput, SegmentedControl, Text, useComputedColorScheme } from '@mantine/core'
-import { IconSearch } from '@tabler/icons-react'
+import { Group, TextInput, SegmentedControl, Text, ActionIcon, Tooltip, useComputedColorScheme } from '@mantine/core'
+import { IconSearch, IconChartBar } from '@tabler/icons-react'
 
 interface ToolbarProps {
   search: string
@@ -8,10 +8,12 @@ interface ToolbarProps {
   onSortChange: (v: 'date' | 'source') => void
   visibleCount: number
   totalCount: number
+  showStats: boolean
+  onToggleStats: () => void
 }
 
 export function Toolbar({
-  search, onSearchChange, sortBy, onSortChange, visibleCount, totalCount
+  search, onSearchChange, sortBy, onSortChange, visibleCount, totalCount, showStats, onToggleStats
 }: ToolbarProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
 
@@ -66,6 +68,17 @@ export function Toolbar({
             label: { fontSize: 11, letterSpacing: '0.06em' },
           }}
         />
+        <Tooltip label={showStats ? 'Hide stats' : 'Show stats'} withArrow>
+          <ActionIcon
+            variant={showStats ? 'filled' : 'subtle'}
+            color="brand"
+            size="sm"
+            onClick={onToggleStats}
+            aria-label="Toggle stats panel"
+          >
+            <IconChartBar size={15} />
+          </ActionIcon>
+        </Tooltip>
       </Group>
     </Group>
   )

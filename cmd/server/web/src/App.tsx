@@ -8,6 +8,7 @@ import { Header } from './components/Header'
 import { SourcesSidebar } from './components/SourcesSidebar'
 import { FeedCard } from './components/FeedCard'
 import { Toolbar } from './components/Toolbar'
+import { StatsPanel } from './components/StatsPanel'
 import { useFeeds } from './hooks/useFeeds'
 import type { FeedItem } from './types'
 
@@ -16,18 +17,17 @@ export default function App() {
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'date' | 'source'>('date')
+  const [showStats, setShowStats] = useState(false)
   const isDark = useComputedColorScheme('dark') === 'dark'
 
   const filtered = useMemo<FeedItem[]>(() => {
     if (!data?.items) return []
     let items = data.items
 
-    // Filter by source
     if (selectedSource) {
       items = items.filter((i) => i.source === selectedSource)
     }
 
-    // Filter by search
     const q = search.trim().toLowerCase()
     if (q) {
       items = items.filter(
@@ -40,7 +40,6 @@ export default function App() {
       )
     }
 
-    // Sort
     if (sortBy === 'source') {
       items = [...items].sort((a, b) => {
         const s = a.source.localeCompare(b.source)
@@ -48,7 +47,6 @@ export default function App() {
         return new Date(b.published).getTime() - new Date(a.published).getTime()
       })
     }
-    // default is already sorted by date from the server
 
     return items
   }, [data, selectedSource, search, sortBy])
@@ -94,6 +92,8 @@ export default function App() {
               onSortChange={setSortBy}
               visibleCount={filtered.length}
               totalCount={data.items.length}
+              showStats={showStats}
+              onToggleStats={() => setShowStats((v) => !v)}
             />
           )}
 
@@ -101,70 +101,76 @@ export default function App() {
             style={{
               flex: 1,
               overflowY: 'auto',
-              padding: '16px 24px',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            {/* Error state */}
-            {error && !data && (
-              <Alert
-                icon={<IconAlertTriangle size={16} />}
-                color="red"
-                title="Failed to load feeds"
-                mt="xl"
-                maw={600}
-                mx="auto"
-              >
-                {error} — The server may still be loading feeds for the first time. Please wait and refresh.
-              </Alert>
-            )}
+            {/* Stats panel */}
+            {data && showStats && <StatsPanel data={data} />}
 
-            {/* Loading state (first load) */}
-            {loading && !data && (
-              <Center h={300}>
-                <Stack align="center" gap="md">
-                  <Loader size="lg" color="brand" type="dots" />
-                  <Text c="dimmed" ff="monospace" size="sm" style={{ letterSpacing: '0.08em' }}>
-                    FETCHING FEEDS…
-                  </Text>
-                  <Text c="dimmed" size="xs">
-                    This may take up to 15 seconds on first load
-                  </Text>
-                </Stack>
-              </Center>
-            )}
+            <Box style={{ padding: '16px 24px', flex: 1 }}>
+              {/* Error state */}
+              {error && !data && (
+                <Alert
+                  icon={<IconAlertTriangle size={16} />}
+                  color="red"
+                  title="Failed to load feeds"
+                  mt="xl"
+                  maw={600}
+                  mx="auto"
+                >
+                  {error} — The server may still be loading feeds for the first time. Please wait and refresh.
+                </Alert>
+              )}
 
-            {/* Feed items */}
-            {data && (
-              <>
-                {filtered.length === 0 ? (
-                  <Center h={200}>
-                    <Text c="dimmed" ff="monospace" size="sm">
-                      {search ? 'NO RESULTS FOUND' : 'NO ITEMS TO DISPLAY'}
+              {/* Loading state (first load) */}
+              {loading && !data && (
+                <Center h={300}>
+                  <Stack align="center" gap="md">
+                    <Loader size="lg" color="brand" type="dots" />
+                    <Text c="dimmed" ff="monospace" size="sm" style={{ letterSpacing: '0.08em' }}>
+                      FETCHING FEEDS…
                     </Text>
-                  </Center>
-                ) : (
-                  <Stack gap="sm" maw={900}>
-                    {filtered.map((item, idx) => (
-                      <FeedCard
-                        key={`${item.source}-${item.link}-${idx}`}
-                        item={item}
-                        searchQuery={search}
-                      />
-                    ))}
+                    <Text c="dimmed" size="xs">
+                      This may take up to 15 seconds on first load
+                    </Text>
                   </Stack>
-                )}
-              </>
-            )}
+                </Center>
+              )}
 
-            {/* Server last update */}
-            {data && (
-              <Group justify="center" mt="xl" mb="md">
-                <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
-                  SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
-                  {' · '}NEXT REFRESH IN ~15 MINUTES
-                </Text>
-              </Group>
-            )}
+              {/* Feed items */}
+              {data && (
+                <>
+                  {filtered.length === 0 ? (
+                    <Center h={200}>
+                      <Text c="dimmed" ff="monospace" size="sm">
+                        {search ? 'NO RESULTS FOUND' : 'NO ITEMS TO DISPLAY'}
+                      </Text>
+                    </Center>
+                  ) : (
+                    <Stack gap="sm" maw={900}>
+                      {filtered.map((item, idx) => (
+                        <FeedCard
+                          key={`${item.source}-${item.link}-${idx}`}
+                          item={item}
+                          searchQuery={search}
+                        />
+                      ))}
+                    </Stack>
+                  )}
+                </>
+              )}
+
+              {/* Server last update */}
+              {data && (
+                <Group justify="center" mt="xl" mb="md">
+                  <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
+                    SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
+                    {' · '}NEXT REFRESH IN ~15 MINUTES
+                  </Text>
+                </Group>
+              )}
+            </Box>
           </Box>
         </Box>
       </Box>
