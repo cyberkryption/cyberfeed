@@ -8,6 +8,7 @@ import { Header } from './components/Header'
 import { SourcesSidebar } from './components/SourcesSidebar'
 import { FeedCard } from './components/FeedCard'
 import { Toolbar } from './components/Toolbar'
+import { StatsPanel } from './components/StatsPanel'
 import { useFeeds } from './hooks/useFeeds'
 import type { FeedItem } from './types'
 
@@ -16,6 +17,7 @@ export default function App() {
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'date' | 'source'>('date')
+  const [showStats, setShowStats] = useState(false)
   const isDark = useComputedColorScheme('dark') === 'dark'
 
   const filtered = useMemo<FeedItem[]>(() => {
@@ -88,6 +90,8 @@ export default function App() {
               onSortChange={setSortBy}
               visibleCount={filtered.length}
               totalCount={data.items.length}
+              showStats={showStats}
+              onToggleStats={() => setShowStats((v) => !v)}
             />
           )}
 
@@ -151,6 +155,24 @@ export default function App() {
             )}
           </Box>
         </Box>
+
+        {data && showStats && (
+          <Box
+            style={{
+              width: 360,
+              flexShrink: 0,
+              overflowY: 'auto',
+              borderLeft: isDark
+                ? '1px solid rgba(0,212,124,0.1)'
+                : '1px solid rgba(0,120,70,0.08)',
+              background: isDark
+                ? 'rgba(13,18,16,0.6)'
+                : 'rgba(238,247,242,0.6)',
+            }}
+          >
+            <StatsPanel data={data} />
+          </Box>
+        )}
       </Box>
     </Box>
   )
