@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"cyberfeed/internal/aggregator"
+	"github.com/cyberkryption/cyberfeed/internal/aggregator"
 )
 
 // Config holds server configuration.
@@ -34,11 +34,8 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 		mux: http.NewServeMux(),
 	}
 
-	// API routes (wrapped with CORS middleware).
 	s.mux.Handle("GET /api/feeds", corsMiddleware(http.HandlerFunc(s.handleFeeds)))
 	s.mux.Handle("GET /api/health", corsMiddleware(http.HandlerFunc(s.handleHealth)))
-
-	// Serve embedded static files; fall back to index.html for SPA routing.
 	s.mux.Handle("/", spaHandler(staticFS))
 
 	s.http = &http.Server{
@@ -85,7 +82,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 // corsMiddleware adds permissive CORS headers suitable for a local-only tool.
-// For a public deployment, restrict Access-Control-Allow-Origin to known origins.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -99,14 +95,12 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// spaHandler serves static files and falls back to index.html.
+// spaHandler serves static files and falls back to index.html for SPA routing.
 func spaHandler(static fs.FS) http.Handler {
 	fileServer := http.FileServer(http.FS(static))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Try to serve the file directly.
 		_, err := fs.Stat(static, r.URL.Path[1:])
 		if err != nil {
-			// Fall back to index.html for client-side routing.
 			r2 := r.Clone(r.Context())
 			r2.URL.Path = "/"
 			fileServer.ServeHTTP(w, r2)

@@ -27,13 +27,14 @@ type FeedResult struct {
 	Err    error
 }
 
-// DefaultFeeds is the list of cybersecurity feeds to pull.
+// DefaultFeeds is the built-in list of cybersecurity feeds, kept in sync with feeds.txt.
 var DefaultFeeds = []FeedConfig{
-	{Name: "CCCS Alerts & Advisories", URL: "https://www.cyber.gc.ca/api/cccs/rss/v1/get?feed=alerts_advisories&lang=en"},
-	{Name: "Australian Cyber Security Centre", URL: "https://www.cyber.gov.au/rss/news"},
+	{Name: "CVE High and Critical", URL: "https://cvefeed.io/rssfeed/severity/high.xml"},
+	{Name: "CVE Feeds Newsroom", URL: "https://cvefeed.io/rssfeed/newsroom.xml"},
+	{Name: "NCSC Threat Reports", URL: "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"},
 	{Name: "Microsoft Security Blog", URL: "https://www.microsoft.com/en-us/security/blog/feed/"},
+	{Name: "Risky Business", URL: "https://risky.biz/feeds/risky-business-news"},
 	{Name: "SANS Internet Storm Center", URL: "https://isc.sans.edu/rssfeed.xml"},
-	{Name: "Google Project Zero", URL: "https://googleprojectzero.blogspot.com/feeds/posts/default"},
 	{Name: "PortSwigger Research", URL: "https://portswigger.net/research/rss"},
 	{Name: "AWS Security Blog", URL: "https://aws.amazon.com/blogs/security/feed/"},
 	{Name: "TrustedSec", URL: "https://www.trustedsec.com/feed.rss"},

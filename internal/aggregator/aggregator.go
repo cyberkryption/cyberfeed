@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"cyberfeed/internal/fetcher"
+	"github.com/cyberkryption/cyberfeed/internal/fetcher"
 )
 
 // FeedStatus tracks per-source metadata.
@@ -23,9 +23,9 @@ type FeedStatus struct {
 
 // Snapshot is the complete aggregated state served to clients.
 type Snapshot struct {
-	Items    []fetcher.FeedItem `json:"items"`
-	Sources  []FeedStatus       `json:"sources"`
-	UpdatedAt time.Time         `json:"updatedAt"`
+	Items     []fetcher.FeedItem `json:"items"`
+	Sources   []FeedStatus       `json:"sources"`
+	UpdatedAt time.Time          `json:"updatedAt"`
 }
 
 // Aggregator owns the worker pool and the cached snapshot.
@@ -56,12 +56,10 @@ func (a *Aggregator) Snapshot() Snapshot {
 func (a *Aggregator) Refresh(ctx context.Context) error {
 	results := make(chan fetcher.FeedResult, len(a.feeds))
 
-	// Spawn one worker goroutine per feed.
 	for _, cfg := range a.feeds {
 		go fetcher.Worker(ctx, cfg, results)
 	}
 
-	// Collect all results.
 	allItems := make([]fetcher.FeedItem, 0, len(a.feeds)*20)
 	statuses := make([]FeedStatus, 0, len(a.feeds))
 
@@ -96,12 +94,10 @@ func (a *Aggregator) Refresh(ctx context.Context) error {
 		}
 	}
 
-	// Sort items newest-first.
 	sort.Slice(allItems, func(i, j int) bool {
 		return allItems[i].Published.After(allItems[j].Published)
 	})
 
-	// Sort statuses alphabetically by name.
 	sort.Slice(statuses, func(i, j int) bool {
 		return statuses[i].Name < statuses[j].Name
 	})
@@ -118,11 +114,10 @@ func (a *Aggregator) Refresh(ctx context.Context) error {
 }
 
 // StartAutoRefresh blocks and periodically calls Refresh on the given interval.
-// It logs errors but does not stop on them. Cancel ctx to stop.
+// Cancel ctx to stop.
 func (a *Aggregator) StartAutoRefresh(ctx context.Context, interval time.Duration) {
 	a.logger.Info("starting auto-refresh", "interval", interval)
 
-	// Do an immediate first fetch.
 	if err := a.Refresh(ctx); err != nil {
 		a.logger.Error("initial refresh failed", "error", err)
 	}
