@@ -73,7 +73,7 @@ export default function App() {
       />
 
       <Box style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Sidebar */}
+        {/* Left sources sidebar */}
         {data && (
           <SourcesSidebar
             sources={data.sources}
@@ -82,7 +82,7 @@ export default function App() {
           />
         )}
 
-        {/* Main content */}
+        {/* Feed list */}
         <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {data && (
             <Toolbar
@@ -97,82 +97,85 @@ export default function App() {
             />
           )}
 
-          <Box
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {/* Stats panel */}
-            {data && showStats && <StatsPanel data={data} />}
+          <Box style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+            {error && !data && (
+              <Alert
+                icon={<IconAlertTriangle size={16} />}
+                color="red"
+                title="Failed to load feeds"
+                mt="xl"
+                maw={600}
+                mx="auto"
+              >
+                {error} — The server may still be loading feeds for the first time. Please wait and refresh.
+              </Alert>
+            )}
 
-            <Box style={{ padding: '16px 24px', flex: 1 }}>
-              {/* Error state */}
-              {error && !data && (
-                <Alert
-                  icon={<IconAlertTriangle size={16} />}
-                  color="red"
-                  title="Failed to load feeds"
-                  mt="xl"
-                  maw={600}
-                  mx="auto"
-                >
-                  {error} — The server may still be loading feeds for the first time. Please wait and refresh.
-                </Alert>
-              )}
-
-              {/* Loading state (first load) */}
-              {loading && !data && (
-                <Center h={300}>
-                  <Stack align="center" gap="md">
-                    <Loader size="lg" color="brand" type="dots" />
-                    <Text c="dimmed" ff="monospace" size="sm" style={{ letterSpacing: '0.08em' }}>
-                      FETCHING FEEDS…
-                    </Text>
-                    <Text c="dimmed" size="xs">
-                      This may take up to 15 seconds on first load
-                    </Text>
-                  </Stack>
-                </Center>
-              )}
-
-              {/* Feed items */}
-              {data && (
-                <>
-                  {filtered.length === 0 ? (
-                    <Center h={200}>
-                      <Text c="dimmed" ff="monospace" size="sm">
-                        {search ? 'NO RESULTS FOUND' : 'NO ITEMS TO DISPLAY'}
-                      </Text>
-                    </Center>
-                  ) : (
-                    <Stack gap="sm" maw={900}>
-                      {filtered.map((item, idx) => (
-                        <FeedCard
-                          key={`${item.source}-${item.link}-${idx}`}
-                          item={item}
-                          searchQuery={search}
-                        />
-                      ))}
-                    </Stack>
-                  )}
-                </>
-              )}
-
-              {/* Server last update */}
-              {data && (
-                <Group justify="center" mt="xl" mb="md">
-                  <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
-                    SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
-                    {' · '}NEXT REFRESH IN ~15 MINUTES
+            {loading && !data && (
+              <Center h={300}>
+                <Stack align="center" gap="md">
+                  <Loader size="lg" color="brand" type="dots" />
+                  <Text c="dimmed" ff="monospace" size="sm" style={{ letterSpacing: '0.08em' }}>
+                    FETCHING FEEDS…
                   </Text>
-                </Group>
-              )}
-            </Box>
+                  <Text c="dimmed" size="xs">
+                    This may take up to 15 seconds on first load
+                  </Text>
+                </Stack>
+              </Center>
+            )}
+
+            {data && (
+              <>
+                {filtered.length === 0 ? (
+                  <Center h={200}>
+                    <Text c="dimmed" ff="monospace" size="sm">
+                      {search ? 'NO RESULTS FOUND' : 'NO ITEMS TO DISPLAY'}
+                    </Text>
+                  </Center>
+                ) : (
+                  <Stack gap="sm" maw={900}>
+                    {filtered.map((item, idx) => (
+                      <FeedCard
+                        key={`${item.source}-${item.link}-${idx}`}
+                        item={item}
+                        searchQuery={search}
+                      />
+                    ))}
+                  </Stack>
+                )}
+              </>
+            )}
+
+            {data && (
+              <Group justify="center" mt="xl" mb="md">
+                <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
+                  SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
+                  {' · '}NEXT REFRESH IN ~15 MINUTES
+                </Text>
+              </Group>
+            )}
           </Box>
         </Box>
+
+        {/* Right stats panel */}
+        {data && showStats && (
+          <Box
+            style={{
+              width: 360,
+              flexShrink: 0,
+              overflowY: 'auto',
+              borderLeft: isDark
+                ? '1px solid rgba(0,212,124,0.1)'
+                : '1px solid rgba(0,120,70,0.08)',
+              background: isDark
+                ? 'rgba(13,18,16,0.6)'
+                : 'rgba(238,247,242,0.6)',
+            }}
+          >
+            <StatsPanel data={data} />
+          </Box>
+        )}
       </Box>
     </Box>
   )

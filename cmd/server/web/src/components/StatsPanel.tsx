@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { SimpleGrid, Paper, Text, Stack, type MantineTheme } from '@mantine/core'
+import { Stack, Paper, Text } from '@mantine/core'
 import { BarChart, AreaChart, DonutChart } from '@mantine/charts'
 import type { FeedsSnapshot } from '../types'
 
@@ -47,10 +47,10 @@ export function StatsPanel({ data }: StatsPanelProps) {
   }, [data.sources])
 
   return (
-    <SimpleGrid cols={3} px="xl" py="md" spacing="md" style={{ flexShrink: 0 }}>
+    <Stack gap="md" p="md">
       <ChartCard title="ARTICLES PER SOURCE">
         <BarChart
-          h={200}
+          h={sourceBarData.length * 28 + 16}
           data={sourceBarData}
           dataKey="source"
           series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
@@ -60,13 +60,14 @@ export function StatsPanel({ data }: StatsPanelProps) {
           withTooltip
           gridAxis="x"
           tickLine="none"
-          yAxisProps={{ width: 140, tick: { fontSize: 10 } }}
+          yAxisProps={{ width: 130, tick: { fontSize: 10 } }}
+          xAxisProps={{ tick: { fontSize: 10 } }}
         />
       </ChartCard>
 
       <ChartCard title="ARTICLES — LAST 14 DAYS">
         <AreaChart
-          h={200}
+          h={160}
           data={timelineData}
           dataKey="date"
           series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
@@ -77,34 +78,33 @@ export function StatsPanel({ data }: StatsPanelProps) {
           gridAxis="y"
           tickLine="none"
           xAxisProps={{ tick: { fontSize: 10 }, interval: 3 }}
+          yAxisProps={{ tick: { fontSize: 10 } }}
         />
       </ChartCard>
 
       <ChartCard title="SOURCE HEALTH">
         <DonutChart
           data={healthData}
-          h={200}
+          h={180}
           withLabelsLine
           withLabels
           tooltipDataSource="segment"
-          size={150}
-          thickness={28}
+          size={140}
+          thickness={26}
           paddingAngle={4}
         />
       </ChartCard>
-    </SimpleGrid>
+    </Stack>
   )
 }
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Paper p="md" radius="sm" withBorder>
-      <Stack gap="xs">
-        <Text size="xs" ff="monospace" c="dimmed" style={{ letterSpacing: '0.1em' }}>
-          {title}
-        </Text>
-        {children}
-      </Stack>
+      <Text size="xs" ff="monospace" c="dimmed" mb="sm" style={{ letterSpacing: '0.1em' }}>
+        {title}
+      </Text>
+      {children}
     </Paper>
   )
 }
