@@ -51,7 +51,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ─── Colour helpers ──────────────────────────────────────────────────────────
+# ─── Colour helpers ───────────────────────────────────────────────────────────────────────
 
 function Write-Header([string]$msg) {
     Write-Host ""
@@ -63,7 +63,7 @@ function Write-Warn([string]$msg) { Write-Host "  [!!] $msg"    -ForegroundColor
 function Write-Fail([string]$msg) { Write-Host "  [XX] $msg"    -ForegroundColor Red    }
 function Write-Info([string]$msg) { Write-Host "       $msg"    -ForegroundColor Gray   }
 
-# ─── Elevation check ─────────────────────────────────────────────────────────
+# ─── Elevation check ───────────────────────────────────────────────────────────────────────────
 
 function Test-Admin {
     $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -77,7 +77,7 @@ if ($InstallService -and -not (Test-Admin)) {
     exit 1
 }
 
-# ─── Prerequisite helpers ─────────────────────────────────────────────────────
+# ─── Prerequisite helpers ─────────────────────────────────────────────────────────────────────────
 
 function Get-CommandVersion([string]$cmd, [string]$versionArg = 'version') {
     try {
@@ -126,43 +126,54 @@ function Assert-Go {
 function Assert-NodeNpm {
     $nodeVer = Get-CommandVersion 'node' '--version'
     $npmVer  = Get-CommandVersion 'npm'  '--version'
-    if ($nodeVer -and $npmVer) {
-        Write-OK "Node.js found: $nodeVer"
-        Write-OK "npm found: $npmVer"
+
+    if (-not $nodeVer -or -not $npmVer) {
+        Write-Warn "Node.js/npm not found - installing via winget..."
+        Install-ViaWinget 'OpenJS.NodeJS.LTS' 'Node.js LTS'
+        $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
+                    [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+        $nodeVer = Get-CommandVersion 'node' '--version'
+        if (-not $nodeVer) {
+            Write-Fail "Node.js still not found after install. Open a new terminal and re-run."
+            exit 1
+        }
+        Write-OK "Node.js installed: $nodeVer"
         return
     }
-    Write-Warn "Node.js/npm not found - installing via winget..."
-    Install-ViaWinget 'OpenJS.NodeJS.LTS' 'Node.js LTS'
-    $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
-                [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-    $nodeVer = Get-CommandVersion 'node' '--version'
-    if (-not $nodeVer) {
-        Write-Fail "Node.js still not found after install. Open a new terminal and re-run."
+
+    # Validate minimum version (Node 18+ required for Vite 5 / React 18).
+    $nodeMajor = ($nodeVer -replace '^v', '') -split '\.' | Select-Object -First 1
+    if ([int]$nodeMajor -lt 18) {
+        Write-Fail "Node.js $nodeVer is too old. Version 18 or later is required."
+        Write-Info "Install the latest LTS from https://nodejs.org/ or run:"
+        Write-Info "  winget install --id OpenJS.NodeJS.LTS"
         exit 1
     }
-    Write-OK "Node.js installed: $nodeVer"
+
+    Write-OK "Node.js found: $nodeVer"
+    Write-OK "npm found: $npmVer"
 }
 
-# ─── Script root (where install.ps1 lives = project root) ────────────────────
+# ─── Script root (where install.ps1 lives = project root) ────────────────────────────────────────────
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $ScriptDir) { $ScriptDir = Get-Location }
 
-# ─── Banner ──────────────────────────────────────────────────────────────────
+# ─── Banner ───────────────────────────────────────────────────────────────────────────────────
 
 Write-Host ""
 Write-Host "   ___      _               ___              _ " -ForegroundColor Green
 Write-Host "  / __|_  _| |__ ___ _ _  | __|__ ___ ___  | |" -ForegroundColor Green
 Write-Host " | (__| || | '_ / -_) '_| | _/ -_) -_) _` | |_|" -ForegroundColor Green
-Write-Host "  \___|\_, |_.__\___|_|   |_|\___\___\__,_|  (_)" -ForegroundColor Green
-Write-Host "       |__/                                      " -ForegroundColor Green
+Write-Host "  \___|\_,_|_.__\___|_|   |_|\___\___\__,_|  (_)" -ForegroundColor Green
+Write-Host "                                                  " -ForegroundColor Green
 Write-Host ""
 Write-Host "  Security Intelligence Aggregator - Installer" -ForegroundColor Cyan
 Write-Host "  Install directory : $InstallDir" -ForegroundColor Gray
 Write-Host "  Install as service: $($InstallService.IsPresent)" -ForegroundColor Gray
 Write-Host ""
 
-# ─── Step 1 - Prerequisites ──────────────────────────────────────────────────
+# ─── Step 1 - Prerequisites ──────────────────────────────────────────────────────────────────────────
 
 if (-not $SkipPrereqs) {
     Write-Header "Checking prerequisites"
@@ -172,7 +183,7 @@ if (-not $SkipPrereqs) {
     Write-Warn "Skipping prerequisite checks (-SkipPrereqs)."
 }
 
-# ─── Step 2 - Prepare install directory ─────────────────────────────────────
+# ─── Step 2 - Prepare install directory ───────────────────────────────────────────────────────────────
 
 Write-Header "Preparing install directory"
 
@@ -183,15 +194,15 @@ if (-not (Test-Path $InstallDir)) {
     Write-OK "Directory exists: $InstallDir"
 }
 
-# Copy project files (excluding node_modules, dist, go binary if present).
+# Copy project files (excluding build artefacts and repo metadata).
 Write-Info "Copying project files..."
-$excludes = @('node_modules', 'dist', 'cyberfeed.exe', 'cyberfeed', '.git')
+$excludes = @('node_modules', 'dist', 'cyberfeed.exe', 'cyberfeed', '.git', '.github')
 
 Get-ChildItem -Path $ScriptDir -Recurse | ForEach-Object {
-    $relative = $_.FullName.Substring($ScriptDir.Length).TrimStart('\')
+    $relative = $_.FullName.Substring($ScriptDir.Length).TrimStart('\\')
     # Skip excluded paths.
     foreach ($ex in $excludes) {
-        if ($relative -like "$ex*" -or $relative -like "*\$ex\*" -or $relative -like "*\$ex") {
+        if ($relative -like "$ex*" -or $relative -like "*\\$ex\\*" -or $relative -like "*\\$ex") {
             return
         }
     }
@@ -206,7 +217,7 @@ Get-ChildItem -Path $ScriptDir -Recurse | ForEach-Object {
 }
 Write-OK "Project files copied to $InstallDir"
 
-# ─── Step 3 - Build React frontend ───────────────────────────────────────────
+# ─── Step 3 - Build React frontend ───────────────────────────────────────────────────────────────────
 
 Write-Header "Building React frontend"
 
@@ -247,7 +258,6 @@ try {
             if ($v.low      -gt 0) { Write-Host "       Low       : $($v.low)"      -ForegroundColor Cyan    }
             if ($v.info     -gt 0) { Write-Host "       Info      : $($v.info)"     -ForegroundColor Gray    }
             Write-Host ""
-            # Print each advisory with package name, severity and advisory URL.
             if ($audit.vulnerabilities) {
                 $audit.vulnerabilities.PSObject.Properties | ForEach-Object {
                     $pkg = $_.Value
@@ -280,7 +290,6 @@ try {
             Write-OK "npm audit: no vulnerabilities found"
         }
     } catch {
-        # JSON parse failed - fall back to printing raw audit output.
         Write-Warn "Could not parse npm audit JSON - raw output:"
         $auditOut | ForEach-Object { Write-Info $_ }
     }
@@ -303,7 +312,7 @@ try {
     Pop-Location
 }
 
-# ─── Step 4 - Build Go binary ─────────────────────────────────────────────────
+# ─── Step 4 - Build Go binary ─────────────────────────────────────────────────────────────────────────────
 
 Write-Header "Building Go binary"
 
@@ -319,7 +328,7 @@ try {
     Pop-Location
 }
 
-# ─── Step 5 - Windows service (optional) ─────────────────────────────────────
+# ─── Step 5 - Windows service (optional) ───────────────────────────────────────────────────────────────
 
 if ($InstallService) {
     Write-Header "Installing Windows service: $ServiceName"
@@ -336,7 +345,6 @@ if ($InstallService) {
         try {
             Invoke-WebRequest -Uri $nssmUrl -OutFile $nssmZip -UseBasicParsing
             Expand-Archive -Path $nssmZip -DestinationPath $nssmTmp -Force
-            # Pick the right architecture.
             $arch = if ([Environment]::Is64BitOperatingSystem) { 'win64' } else { 'win32' }
             $nssmSrc = Get-ChildItem -Path $nssmTmp -Recurse -Filter 'nssm.exe' |
                        Where-Object { $_.FullName -like "*$arch*" } |
@@ -374,7 +382,6 @@ if ($InstallService) {
     }
 
     if ($nssmPath) {
-        # Install via NSSM (handles stdout/stderr logging natively).
         $logDir = Join-Path $InstallDir 'logs'
         New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 
@@ -383,18 +390,16 @@ if ($InstallService) {
         & $nssmPath set $ServiceName AppStdout (Join-Path $logDir 'cyberfeed.log')
         & $nssmPath set $ServiceName AppStderr (Join-Path $logDir 'cyberfeed-error.log')
         & $nssmPath set $ServiceName AppRotateFiles 1
-        & $nssmPath set $ServiceName AppRotateBytes 10485760  # 10 MB
+        & $nssmPath set $ServiceName AppRotateBytes 10485760
         & $nssmPath set $ServiceName Description 'CyberFeed Security Intelligence Aggregator'
         & $nssmPath set $ServiceName Start SERVICE_AUTO_START
         Write-OK "Service '$ServiceName' registered via NSSM"
     } else {
-        # Fallback: plain sc.exe.
         sc.exe create $ServiceName binPath= "`"$binaryPath`"" start= auto DisplayName= "CyberFeed"
         sc.exe description $ServiceName "CyberFeed Security Intelligence Aggregator"
         Write-OK "Service '$ServiceName' registered via sc.exe"
     }
 
-    # Start the service.
     Start-Service -Name $ServiceName
     Start-Sleep -Seconds 2
     $svc = Get-Service -Name $ServiceName
@@ -406,7 +411,7 @@ if ($InstallService) {
     }
 }
 
-# ─── Step 6 - Create desktop shortcut ────────────────────────────────────────
+# ─── Step 6 - Create desktop shortcut ───────────────────────────────────────────────────────────────────
 
 Write-Header "Creating shortcuts"
 
@@ -417,11 +422,9 @@ try {
     $lnk      = $wsh.CreateShortcut($lnkPath)
 
     if ($InstallService) {
-        # Shortcut just opens the browser.
         $lnk.TargetPath     = 'http://localhost:8888'
         $lnk.Description    = 'Open CyberFeed in browser'
     } else {
-        # Shortcut launches the binary.
         $lnk.TargetPath     = Join-Path $InstallDir 'cyberfeed.exe'
         $lnk.WorkingDirectory = $InstallDir
         $lnk.Description    = 'CyberFeed Security Intelligence Aggregator'
@@ -432,7 +435,7 @@ try {
     Write-Warn "Could not create desktop shortcut: $_"
 }
 
-# ─── Step 7 - Add to PATH (optional, for non-service install) ─────────────────
+# ─── Step 7 - Add to PATH (optional, for non-service install) ─────────────────────────────────────────
 
 if (-not $InstallService) {
     $currentPath = [System.Environment]::GetEnvironmentVariable('PATH', 'User')
@@ -448,7 +451,7 @@ if (-not $InstallService) {
     }
 }
 
-# ─── Done ─────────────────────────────────────────────────────────────────────
+# ─── Done ───────────────────────────────────────────────────────────────────────────────────────
 
 Write-Host ""
 Write-Host "-------------------------------------------------" -ForegroundColor Green
