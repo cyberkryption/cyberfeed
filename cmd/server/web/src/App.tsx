@@ -57,12 +57,13 @@ export default function App() {
   return (
     <Box
       style={{
-        minHeight: '100vh',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
         background: isDark
           ? 'linear-gradient(160deg, #101113 0%, #14171a 50%, #0d1210 100%)'
           : 'linear-gradient(160deg, #f5faf7 0%, #eef7f2 100%)',
-        display: 'flex',
-        flexDirection: 'column',
       }}
     >
       <Header
@@ -73,7 +74,10 @@ export default function App() {
         activeSources={activeSources}
       />
 
-      <Box style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {/* Body row: sidebar | feed | stats */}
+      <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+
+        {/* Left sources sidebar */}
         {data && (
           <SourcesSidebar
             sources={data.sources}
@@ -82,7 +86,8 @@ export default function App() {
           />
         )}
 
-        <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Feed list — minWidth:0 lets it shrink when the stats panel opens */}
+        <Box style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {data && (
             <Toolbar
               search={search}
@@ -157,11 +162,14 @@ export default function App() {
           </Box>
         </Box>
 
+        {/* Right stats panel */}
         {data && showStats && (
           <Box
             style={{
               width: 360,
               flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
               overflowY: 'auto',
               borderLeft: isDark
                 ? '1px solid rgba(0,212,124,0.1)'
