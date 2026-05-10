@@ -6,6 +6,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor':   ['react', 'react-dom'],
+          'mantine-vendor': ['@mantine/core', '@mantine/hooks', '@mantine/notifications', '@mantine/charts'],
+          'recharts-vendor': ['recharts'],
+          'icons-vendor':   ['@tabler/icons-react'],
+        },
+      },
+    },
   },
   server: {
     proxy: {
