@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, lazy, Suspense } from 'react'
 import {
   Box, Stack, Text, Center, Loader, Alert,
   Group, useComputedColorScheme
@@ -8,9 +8,10 @@ import { Header } from './components/Header'
 import { SourcesSidebar } from './components/SourcesSidebar'
 import { FeedCard } from './components/FeedCard'
 import { Toolbar } from './components/Toolbar'
-import { StatsPanel } from './components/StatsPanel'
 import { useFeeds } from './hooks/useFeeds'
 import type { FeedItem } from './types'
+
+const StatsPanel = lazy(() => import('./components/StatsPanel'))
 
 export default function App() {
   const { data, loading, error, refresh, lastRefreshed } = useFeeds()
@@ -170,7 +171,15 @@ export default function App() {
                 : 'rgba(238,247,242,0.6)',
             }}
           >
-            <StatsPanel data={data} />
+            <Suspense
+              fallback={
+                <Center h={200}>
+                  <Loader size="sm" color="brand" type="dots" />
+                </Center>
+              }
+            >
+              <StatsPanel data={data} />
+            </Suspense>
           </Box>
         )}
       </Box>

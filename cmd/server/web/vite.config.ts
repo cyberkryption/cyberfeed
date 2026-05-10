@@ -10,8 +10,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           'react-vendor':   ['react', 'react-dom'],
-          'mantine-vendor': ['@mantine/core', '@mantine/hooks', '@mantine/notifications', '@mantine/charts'],
-          'recharts-vendor': ['recharts'],
+          'mantine-vendor': ['@mantine/core', '@mantine/hooks', '@mantine/notifications'],
           'icons-vendor':   ['@tabler/icons-react'],
         },
       },
