@@ -74,7 +74,6 @@ export default function App() {
         activeSources={activeSources}
       />
 
-      {/* Body row: sidebar | feed | stats */}
       <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 
         {/* Left sources sidebar */}
@@ -86,7 +85,7 @@ export default function App() {
           />
         )}
 
-        {/* Feed list — minWidth:0 lets it shrink when the stats panel opens */}
+        {/* Feed list */}
         <Box style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {data && (
             <Toolbar
@@ -162,11 +161,11 @@ export default function App() {
           </Box>
         </Box>
 
-        {/* Right stats panel */}
+        {/* Right stats panel — 460px gives charts enough room to render cleanly */}
         {data && showStats && (
           <Box
             style={{
-              width: 360,
+              width: 460,
               flexShrink: 0,
               display: 'flex',
               flexDirection: 'column',
