@@ -18,7 +18,7 @@ export default function App() {
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'date' | 'source'>('date')
-  const [showStats, setShowStats] = useState(false)
+  const [showStats, setShowStats] = useState(true)
   const isDark = useComputedColorScheme('dark') === 'dark'
 
   const filtered = useMemo<FeedItem[]>(() => {
