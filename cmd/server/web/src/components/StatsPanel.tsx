@@ -7,7 +7,7 @@ interface StatsPanelProps {
   data: FeedsSnapshot
 }
 
-export function StatsPanel({ data }: StatsPanelProps) {
+export default function StatsPanel({ data }: StatsPanelProps) {
   const sourceBarData = useMemo(
     () =>
       [...data.sources]
