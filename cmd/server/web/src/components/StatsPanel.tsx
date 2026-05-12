@@ -15,6 +15,7 @@ interface StatsPanelProps {
 export default function StatsPanel({ data }: StatsPanelProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
   const tickColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)'
+  const cveHeaderColor = isDark ? '#00d47c' : '#007840'
 
   // ── CVE items ─────────────────────────────────────────────────────────────
 
@@ -44,29 +45,30 @@ export default function StatsPanel({ data }: StatsPanelProps) {
     return Object.entries(buckets).map(([date, cves]) => ({ date, cves }))
   }, [cveItems])
 
-  // CVE Chart 2: CVSS score distribution
+  // CVE Chart 2: CVSS score distribution — ordered lowest→highest (top→bottom)
   const cvssData = useMemo(() => {
-    const bands: Record<string, number> = {
-      '10.0 (Critical)': 0,
-      '9.0 – 9.9': 0,
-      '8.0 – 8.9': 0,
-      '7.0 – 7.9': 0,
+    const counts: Record<string, number> = {
       'Score Unknown': 0,
+      '7.0 – 7.9': 0,
+      '8.0 – 8.9': 0,
+      '9.0 – 9.9': 0,
+      '10.0 (Critical)': 0,
     }
     for (const item of cveItems) {
       const text = `${item.title ?? ''} ${item.description ?? ''}`
       const match = text.match(CVSS_RE)
       if (!match) {
-        bands['Score Unknown']++
+        counts['Score Unknown']++
       } else {
         const score = parseFloat(match[1])
-        if (score === 10.0)      bands['10.0 (Critical)']++
-        else if (score >= 9.0)   bands['9.0 – 9.9']++
-        else if (score >= 8.0)   bands['8.0 – 8.9']++
-        else                     bands['7.0 – 7.9']++
+        if (score === 10.0)      counts['10.0 (Critical)']++
+        else if (score >= 9.0)   counts['9.0 – 9.9']++
+        else if (score >= 8.0)   counts['8.0 – 8.9']++
+        else                     counts['7.0 – 7.9']++
       }
     }
-    return Object.entries(bands)
+    // Preserve insertion order (Score Unknown → 7.0 → 8.0 → 9.0 → 10.0)
+    return Object.entries(counts)
       .filter(([, count]) => count > 0)
       .map(([band, count]) => ({ band, count }))
   }, [cveItems])
@@ -140,7 +142,7 @@ export default function StatsPanel({ data }: StatsPanelProps) {
                 fontFamily: 'monospace',
                 fontSize: 10,
                 letterSpacing: '0.1em',
-                color: '#e03131',
+                color: cveHeaderColor,
                 fontWeight: 700,
               },
             }}
@@ -151,7 +153,7 @@ export default function StatsPanel({ data }: StatsPanelProps) {
               h={140}
               data={cveDailyData}
               dataKey="date"
-              series={[{ name: 'cves', color: 'red.6', label: 'CVEs' }]}
+              series={[{ name: 'cves', color: 'brand.5', label: 'CVEs' }]}
               withTooltip
               withXAxis
               withYAxis
@@ -168,7 +170,7 @@ export default function StatsPanel({ data }: StatsPanelProps) {
                 h={cvssData.length * 28 + 16}
                 data={cvssData}
                 dataKey="band"
-                series={[{ name: 'count', color: 'orange.5', label: 'CVEs' }]}
+                series={[{ name: 'count', color: 'brand.5', label: 'CVEs' }]}
                 orientation="horizontal"
                 withXAxis
                 withYAxis
@@ -187,7 +189,7 @@ export default function StatsPanel({ data }: StatsPanelProps) {
                 h={topCategoriesData.length * 26 + 16}
                 data={topCategoriesData}
                 dataKey="category"
-                series={[{ name: 'count', color: 'red.4', label: 'CVEs' }]}
+                series={[{ name: 'count', color: 'brand.5', label: 'CVEs' }]}
                 orientation="horizontal"
                 withXAxis
                 withYAxis
