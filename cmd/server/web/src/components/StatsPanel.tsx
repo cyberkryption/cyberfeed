@@ -50,7 +50,7 @@ export default function StatsPanel({ data }: StatsPanelProps) {
     <Stack gap="md" p="md">
       <ChartCard title="ARTICLES PER SOURCE">
         <BarChart
-          h={sourceBarData.length * 28 + 16}
+          h={sourceBarData.length * 20 + 16}
           data={sourceBarData}
           dataKey="source"
           series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
@@ -60,14 +60,14 @@ export default function StatsPanel({ data }: StatsPanelProps) {
           withTooltip
           gridAxis="x"
           tickLine="none"
-          yAxisProps={{ width: 130, tick: { fontSize: 10 } }}
+          yAxisProps={{ width: 110, tick: { fontSize: 10 } }}
           xAxisProps={{ tick: { fontSize: 10 } }}
         />
       </ChartCard>
 
       <ChartCard title="ARTICLES — LAST 14 DAYS">
         <AreaChart
-          h={160}
+          h={120}
           data={timelineData}
           dataKey="date"
           series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
@@ -85,12 +85,12 @@ export default function StatsPanel({ data }: StatsPanelProps) {
       <ChartCard title="SOURCE HEALTH">
         <DonutChart
           data={healthData}
-          h={180}
+          h={150}
           withLabelsLine
           withLabels
           tooltipDataSource="segment"
-          size={140}
-          thickness={26}
+          size={110}
+          thickness={22}
           paddingAngle={4}
         />
       </ChartCard>

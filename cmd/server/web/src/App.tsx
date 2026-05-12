@@ -138,7 +138,7 @@ export default function App() {
                     </Text>
                   </Center>
                 ) : (
-                  <Stack gap="sm" maw={900}>
+                  <Stack gap="sm" maw={740}>
                     {filtered.map((item, idx) => (
                       <FeedCard
                         key={`${item.source}-${item.link}-${idx}`}
