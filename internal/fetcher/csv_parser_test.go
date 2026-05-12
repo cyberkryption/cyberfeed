@@ -88,6 +88,25 @@ func TestParseCSV_EmptyFile(t *testing.T) {
 	}
 }
 
+func TestBodyLooksLikeCSV(t *testing.T) {
+	cases := []struct {
+		body []byte
+		want bool
+	}{
+		{[]byte("#ip,ioc\n1.2.3.4,C2"), true},
+		{[]byte("  \n#domain,ioc\nexample.com,C2"), true},
+		{[]byte("<?xml version=\"1.0\"?>"), false},
+		{[]byte("<rss version=\"2.0\">"), false},
+		{[]byte(""), false},
+		{[]byte("just text"), false},
+	}
+	for _, c := range cases {
+		if got := bodyLooksLikeCSV(c.body); got != c.want {
+			t.Errorf("bodyLooksLikeCSV(%q) = %v, want %v", c.body, got, c.want)
+		}
+	}
+}
+
 func TestIsCSVURL(t *testing.T) {
 	cases := []struct {
 		url  string
