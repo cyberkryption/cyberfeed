@@ -151,12 +151,17 @@ export default function StatsPanel({
   }, [data.items])
 
   const healthData = useMemo(() => {
-    const ok = data.sources.filter((s) => s.ok).length
-    const err = data.sources.filter((s) => !s.ok).length
-    const segments = []
-    if (ok > 0) segments.push({ name: 'Healthy', value: ok, color: 'brand.5' })
-    if (err > 0) segments.push({ name: 'Error', value: err, color: 'red.6' })
-    return segments
+    function buildSegments(sources: typeof data.sources) {
+      const ok  = sources.filter((s) => s.ok).length
+      const err = sources.filter((s) => !s.ok).length
+      const segments = []
+      if (ok  > 0) segments.push({ name: 'Healthy', value: ok,  color: 'brand.5' })
+      if (err > 0) segments.push({ name: 'Error',   value: err, color: 'red.6'   })
+      return segments
+    }
+    const news = data.sources.filter((s) => isNewsUrl(s.url))
+    const c2   = data.sources.filter((s) => !isNewsUrl(s.url))
+    return { news: buildSegments(news), c2: buildSegments(c2) }
   }, [data.sources])
 
   // ── Chart content map ───────────────────────────────────────────────────────
@@ -238,13 +243,34 @@ export default function StatsPanel({
     ),
     'source-health': (
       <ChartCard id="source-health" title="SOURCE HEALTH" isDark={isDark}>
-        <DonutChart
-          data={healthData}
-          h={150}
-          withLabelsLine withLabels
-          tooltipDataSource="segment"
-          size={110} thickness={22} paddingAngle={4}
-        />
+        <Group grow align="flex-start" gap="xs">
+          <Box>
+            <Text size="xs" ff="monospace" ta="center" c="dimmed" mb={4}
+              style={{ letterSpacing: '0.08em', fontSize: 9 }}>
+              NEWS
+            </Text>
+            <DonutChart
+              data={healthData.news}
+              h={130}
+              withLabelsLine withLabels
+              tooltipDataSource="segment"
+              size={90} thickness={18} paddingAngle={4}
+            />
+          </Box>
+          <Box>
+            <Text size="xs" ff="monospace" ta="center" c="dimmed" mb={4}
+              style={{ letterSpacing: '0.08em', fontSize: 9 }}>
+              THREAT INTEL
+            </Text>
+            <DonutChart
+              data={healthData.c2}
+              h={130}
+              withLabelsLine withLabels
+              tooltipDataSource="segment"
+              size={90} thickness={18} paddingAngle={4}
+            />
+          </Box>
+        </Group>
       </ChartCard>
     ),
   }
