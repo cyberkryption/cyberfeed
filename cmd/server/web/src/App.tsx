@@ -71,11 +71,11 @@ export default function App() {
     if (q) {
       items = items.filter(
         (i) =>
-          i.title.toLowerCase().includes(q) ||
-          i.description.toLowerCase().includes(q) ||
-          i.source.toLowerCase().includes(q) ||
-          i.author.toLowerCase().includes(q) ||
-          i.categories.some((c) => c.toLowerCase().includes(q))
+          (i.title ?? '').toLowerCase().includes(q) ||
+          (i.description ?? '').toLowerCase().includes(q) ||
+          (i.source ?? '').toLowerCase().includes(q) ||
+          (i.author ?? '').toLowerCase().includes(q) ||
+          (i.categories ?? []).some((c) => c.toLowerCase().includes(q))
       )
     }
 
