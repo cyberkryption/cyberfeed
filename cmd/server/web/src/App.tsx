@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from 'react'
+import { useState, useMemo, useCallback, lazy, Suspense } from 'react'
 import {
   Box, Stack, Text, Center, Loader, Alert,
   Group, useComputedColorScheme
@@ -11,6 +11,7 @@ import { FeedCard } from './components/FeedCard'
 import { Toolbar } from './components/Toolbar'
 import { TickerBar } from './components/TickerBar'
 import { useFeeds } from './hooks/useFeeds'
+import { ALL_CHARTS } from './charts'
 import type { FeedItem } from './types'
 
 const StatsPanel = lazy(() => import('./components/StatsPanel'))
@@ -56,8 +57,21 @@ export default function App() {
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'date' | 'source'>('date')
-  const [showStats, setShowStats] = useState(true)
+  const [visibleCharts, setVisibleCharts] = useState<Set<string>>(
+    () => new Set(ALL_CHARTS.map((c) => c.id))
+  )
   const isDark = useComputedColorScheme('dark') === 'dark'
+
+  const handleToggleChart = useCallback((id: string) => {
+    setVisibleCharts((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const showStats = visibleCharts.size > 0
 
   const filtered = useMemo<FeedItem[]>(() => {
     if (!data?.items) return []
@@ -144,8 +158,8 @@ export default function App() {
                 onSortChange={setSortBy}
                 visibleCount={filtered.length}
                 totalCount={data.items.length}
-                showStats={showStats}
-                onToggleStats={() => setShowStats((v) => !v)}
+                visibleCharts={visibleCharts}
+                onToggleChart={handleToggleChart}
               />
             )}
 
@@ -234,7 +248,7 @@ export default function App() {
                       </Center>
                     }
                   >
-                    <StatsPanel data={data} />
+                    <StatsPanel data={data} visibleCharts={visibleCharts} />
                   </Suspense>
                 </Box>
               </Panel>

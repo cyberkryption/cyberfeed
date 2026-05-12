@@ -10,9 +10,10 @@ const CVSS_RE = /\b(10\.0|[7-9]\.\d)\b/
 
 interface StatsPanelProps {
   data: FeedsSnapshot
+  visibleCharts: Set<string>
 }
 
-export default function StatsPanel({ data }: StatsPanelProps) {
+export default function StatsPanel({ data, visibleCharts }: StatsPanelProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
   const tickColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)'
   const cveHeaderColor = isDark ? '#00d47c' : '#007840'
@@ -67,7 +68,6 @@ export default function StatsPanel({ data }: StatsPanelProps) {
         else                     counts['7.0 – 7.9']++
       }
     }
-    // Preserve insertion order (Score Unknown → 7.0 → 8.0 → 9.0 → 10.0)
     return Object.entries(counts)
       .filter(([, count]) => count > 0)
       .map(([band, count]) => ({ band, count }))
@@ -128,11 +128,23 @@ export default function StatsPanel({ data }: StatsPanelProps) {
     return segments
   }, [data.sources])
 
+  // ── Visibility helpers ────────────────────────────────────────────────────
+
+  const showCveDaily      = visibleCharts.has('cve-daily')
+  const showCvssDist      = visibleCharts.has('cvss-dist')
+  const showCveCategories = visibleCharts.has('cve-categories')
+  const showArticleSource = visibleCharts.has('articles-source')
+  const showArticle14d    = visibleCharts.has('articles-14d')
+  const showSourceHealth  = visibleCharts.has('source-health')
+
+  const anyCveVisible     = showCveDaily || showCvssDist || showCveCategories
+  const anyGeneralVisible = showArticleSource || showArticle14d || showSourceHealth
+
   return (
     <Stack gap="md" p="md">
 
       {/* ── CVE High & Critical charts ──────────────────────────────────── */}
-      {cveItems.length > 0 && (
+      {cveItems.length > 0 && anyCveVisible && (
         <>
           <Divider
             label="CVE HIGH &amp; CRITICAL"
@@ -148,23 +160,25 @@ export default function StatsPanel({ data }: StatsPanelProps) {
             }}
           />
 
-          <ChartCard title="CVE DAILY VOLUME — LAST 7 DAYS">
-            <BarChart
-              h={140}
-              data={cveDailyData}
-              dataKey="date"
-              series={[{ name: 'cves', color: 'brand.5', label: 'CVEs' }]}
-              withTooltip
-              withXAxis
-              withYAxis
-              gridAxis="y"
-              tickLine="none"
-              xAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
-              yAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
-            />
-          </ChartCard>
+          {showCveDaily && (
+            <ChartCard title="CVE DAILY VOLUME — LAST 7 DAYS">
+              <BarChart
+                h={140}
+                data={cveDailyData}
+                dataKey="date"
+                series={[{ name: 'cves', color: 'brand.5', label: 'CVEs' }]}
+                withTooltip
+                withXAxis
+                withYAxis
+                gridAxis="y"
+                tickLine="none"
+                xAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
+                yAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
+              />
+            </ChartCard>
+          )}
 
-          {cvssData.length > 0 && (
+          {showCvssDist && cvssData.length > 0 && (
             <ChartCard title="CVSS SCORE DISTRIBUTION">
               <BarChart
                 h={cvssData.length * 28 + 16}
@@ -183,7 +197,7 @@ export default function StatsPanel({ data }: StatsPanelProps) {
             </ChartCard>
           )}
 
-          {topCategoriesData.length > 0 && (
+          {showCveCategories && topCategoriesData.length > 0 && (
             <ChartCard title="TOP AFFECTED CATEGORIES">
               <BarChart
                 h={topCategoriesData.length * 26 + 16}
@@ -205,66 +219,76 @@ export default function StatsPanel({ data }: StatsPanelProps) {
       )}
 
       {/* ── General charts ─────────────────────────────────────────────── */}
-      <Divider
-        label="GENERAL"
-        labelPosition="left"
-        styles={{
-          label: {
-            fontFamily: 'monospace',
-            fontSize: 10,
-            letterSpacing: '0.1em',
-            color: isDark ? 'rgba(0,212,124,0.8)' : 'rgba(0,120,70,0.8)',
-            fontWeight: 700,
-          },
-        }}
-      />
+      {anyGeneralVisible && (
+        <>
+          <Divider
+            label="GENERAL"
+            labelPosition="left"
+            styles={{
+              label: {
+                fontFamily: 'monospace',
+                fontSize: 10,
+                letterSpacing: '0.1em',
+                color: isDark ? 'rgba(0,212,124,0.8)' : 'rgba(0,120,70,0.8)',
+                fontWeight: 700,
+              },
+            }}
+          />
 
-      <ChartCard title="ARTICLES PER SOURCE">
-        <BarChart
-          h={sourceBarData.length * 20 + 16}
-          data={sourceBarData}
-          dataKey="source"
-          series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
-          orientation="horizontal"
-          withXAxis
-          withYAxis
-          withTooltip
-          gridAxis="x"
-          tickLine="none"
-          yAxisProps={{ width: 110, tick: { fontSize: 10, fill: tickColor } }}
-          xAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
-        />
-      </ChartCard>
+          {showArticleSource && (
+            <ChartCard title="ARTICLES PER SOURCE">
+              <BarChart
+                h={sourceBarData.length * 20 + 16}
+                data={sourceBarData}
+                dataKey="source"
+                series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
+                orientation="horizontal"
+                withXAxis
+                withYAxis
+                withTooltip
+                gridAxis="x"
+                tickLine="none"
+                yAxisProps={{ width: 110, tick: { fontSize: 10, fill: tickColor } }}
+                xAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
+              />
+            </ChartCard>
+          )}
 
-      <ChartCard title="ARTICLES — LAST 14 DAYS">
-        <AreaChart
-          h={120}
-          data={timelineData}
-          dataKey="date"
-          series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
-          curveType="monotone"
-          withDots={false}
-          fillOpacity={0.15}
-          withTooltip
-          gridAxis="y"
-          tickLine="none"
-          xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, interval: 3 }}
-          yAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
-        />
-      </ChartCard>
+          {showArticle14d && (
+            <ChartCard title="ARTICLES — LAST 14 DAYS">
+              <AreaChart
+                h={120}
+                data={timelineData}
+                dataKey="date"
+                series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
+                curveType="monotone"
+                withDots={false}
+                fillOpacity={0.15}
+                withTooltip
+                gridAxis="y"
+                tickLine="none"
+                xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, interval: 3 }}
+                yAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
+              />
+            </ChartCard>
+          )}
 
-      <ChartCard title="SOURCE HEALTH">
-        <DonutChart
-          data={healthData}
-          h={150}
-          withLabelsLine
-          withLabels
-          tooltipDataSource="segment"
-          size={110}
-          thickness={22}
-          paddingAngle={4}
-        />
-      </ChartCard>
+          {showSourceHealth && (
+            <ChartCard title="SOURCE HEALTH">
+              <DonutChart
+                data={healthData}
+                h={150}
+                withLabelsLine
+                withLabels
+                tooltipDataSource="segment"
+                size={110}
+                thickness={22}
+                paddingAngle={4}
+              />
+            </ChartCard>
+          )}
+        </>
+      )}
 
     </Stack>
   )
