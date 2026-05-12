@@ -23,6 +23,12 @@ import type { FeedsSnapshot } from '../types'
 const CVE_SOURCE = 'CVE High and Critical'
 const CVSS_RE = /\b(10\.0|[7-9]\.\d)\b/
 
+// Returns true for RSS/Atom news sources; false for CSV-based threat intel feeds.
+function isNewsUrl(url: string) {
+  const lower = url.toLowerCase().split('?')[0]
+  return !lower.endsWith('.csv')
+}
+
 interface StatsPanelProps {
   data: FeedsSnapshot
   visibleCharts: Set<string>
@@ -116,7 +122,7 @@ export default function StatsPanel({
   const sourceBarData = useMemo(
     () =>
       [...data.sources]
-        .filter((s) => s.itemCount > 0)
+        .filter((s) => s.itemCount > 0 && isNewsUrl(s.url))
         .sort((a, b) => b.itemCount - a.itemCount)
         .map((s) => ({ source: s.name, articles: s.itemCount })),
     [data.sources]
@@ -132,6 +138,7 @@ export default function StatsPanel({
       buckets[key] = 0
     }
     for (const item of data.items) {
+      if (!isNewsUrl(item.sourceUrl)) continue
       const pub = new Date(item.published)
       const ageMs = now.getTime() - pub.getTime()
       if (ageMs >= 0 && ageMs <= 14 * 24 * 60 * 60 * 1000) {
