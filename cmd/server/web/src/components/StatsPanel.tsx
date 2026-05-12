@@ -1,31 +1,49 @@
 import { useMemo } from 'react'
-import { Stack, Paper, Text, Divider, useComputedColorScheme } from '@mantine/core'
+import { Stack, Paper, Text, Divider, useComputedColorScheme, Box } from '@mantine/core'
 import { BarChart, AreaChart, DonutChart } from '@mantine/charts'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { IconGripVertical } from '@tabler/icons-react'
+import { ALL_CHARTS } from '../charts'
 import type { FeedsSnapshot } from '../types'
 
 const CVE_SOURCE = 'CVE High and Critical'
-
-// Matches any CVSS-range score (7.0–10.0) in free text.
 const CVSS_RE = /\b(10\.0|[7-9]\.\d)\b/
 
 interface StatsPanelProps {
   data: FeedsSnapshot
   visibleCharts: Set<string>
+  chartOrder: string[]
+  onReorderCharts: (newOrder: string[]) => void
 }
 
-export default function StatsPanel({ data, visibleCharts }: StatsPanelProps) {
+export default function StatsPanel({
+  data, visibleCharts, chartOrder, onReorderCharts,
+}: StatsPanelProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
   const tickColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)'
   const cveHeaderColor = isDark ? '#00d47c' : '#007840'
 
-  // ── CVE items ─────────────────────────────────────────────────────────────
+  // ── CVE items ───────────────────────────────────────────────────────────────
 
   const cveItems = useMemo(
     () => data.items.filter((i) => i.source === CVE_SOURCE),
     [data.items]
   )
 
-  // CVE Chart 1: Daily volume — last 7 days
   const cveDailyData = useMemo(() => {
     const buckets: Record<string, number> = {}
     const now = new Date()
@@ -46,14 +64,10 @@ export default function StatsPanel({ data, visibleCharts }: StatsPanelProps) {
     return Object.entries(buckets).map(([date, cves]) => ({ date, cves }))
   }, [cveItems])
 
-  // CVE Chart 2: CVSS score distribution — ordered lowest→highest (top→bottom)
   const cvssData = useMemo(() => {
     const counts: Record<string, number> = {
-      'Score Unknown': 0,
-      '7.0 – 7.9': 0,
-      '8.0 – 8.9': 0,
-      '9.0 – 9.9': 0,
-      '10.0 (Critical)': 0,
+      'Score Unknown': 0, '7.0 – 7.9': 0, '8.0 – 8.9': 0,
+      '9.0 – 9.9': 0, '10.0 (Critical)': 0,
     }
     for (const item of cveItems) {
       const text = `${item.title ?? ''} ${item.description ?? ''}`
@@ -62,10 +76,10 @@ export default function StatsPanel({ data, visibleCharts }: StatsPanelProps) {
         counts['Score Unknown']++
       } else {
         const score = parseFloat(match[1])
-        if (score === 10.0)      counts['10.0 (Critical)']++
-        else if (score >= 9.0)   counts['9.0 – 9.9']++
-        else if (score >= 8.0)   counts['8.0 – 8.9']++
-        else                     counts['7.0 – 7.9']++
+        if (score === 10.0)    counts['10.0 (Critical)']++
+        else if (score >= 9.0) counts['9.0 – 9.9']++
+        else if (score >= 8.0) counts['8.0 – 8.9']++
+        else                   counts['7.0 – 7.9']++
       }
     }
     return Object.entries(counts)
@@ -73,7 +87,6 @@ export default function StatsPanel({ data, visibleCharts }: StatsPanelProps) {
       .map(([band, count]) => ({ band, count }))
   }, [cveItems])
 
-  // CVE Chart 3: Top affected categories
   const topCategoriesData = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const item of cveItems) {
@@ -88,7 +101,7 @@ export default function StatsPanel({ data, visibleCharts }: StatsPanelProps) {
       .map(([category, count]) => ({ category, count }))
   }, [cveItems])
 
-  // ── General charts ────────────────────────────────────────────────────────
+  // ── General charts ──────────────────────────────────────────────────────────
 
   const sourceBarData = useMemo(
     () =>
@@ -128,178 +141,242 @@ export default function StatsPanel({ data, visibleCharts }: StatsPanelProps) {
     return segments
   }, [data.sources])
 
-  // ── Visibility helpers ────────────────────────────────────────────────────
+  // ── Chart content map ───────────────────────────────────────────────────────
 
-  const showCveDaily      = visibleCharts.has('cve-daily')
-  const showCvssDist      = visibleCharts.has('cvss-dist')
-  const showCveCategories = visibleCharts.has('cve-categories')
-  const showArticleSource = visibleCharts.has('articles-source')
-  const showArticle14d    = visibleCharts.has('articles-14d')
-  const showSourceHealth  = visibleCharts.has('source-health')
+  const chartContent: Record<string, React.ReactNode> = {
+    'cve-daily': (
+      <ChartCard id="cve-daily" title="CVE DAILY VOLUME — LAST 7 DAYS" isDark={isDark}>
+        <BarChart
+          h={140}
+          data={cveDailyData}
+          dataKey="date"
+          series={[{ name: 'cves', color: 'brand.5', label: 'CVEs' }]}
+          withTooltip withXAxis withYAxis gridAxis="y" tickLine="none"
+          xAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
+          yAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
+        />
+      </ChartCard>
+    ),
+    'cvss-dist': cvssData.length > 0 ? (
+      <ChartCard id="cvss-dist" title="CVSS SCORE DISTRIBUTION" isDark={isDark}>
+        <BarChart
+          h={cvssData.length * 28 + 16}
+          data={cvssData}
+          dataKey="band"
+          series={[{ name: 'count', color: 'brand.5', label: 'CVEs' }]}
+          orientation="horizontal"
+          withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
+          yAxisProps={{ width: 120, tick: { fontSize: 10, fill: tickColor } }}
+          xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
+        />
+      </ChartCard>
+    ) : null,
+    'cve-categories': topCategoriesData.length > 0 ? (
+      <ChartCard id="cve-categories" title="TOP AFFECTED CATEGORIES" isDark={isDark}>
+        <BarChart
+          h={topCategoriesData.length * 26 + 16}
+          data={topCategoriesData}
+          dataKey="category"
+          series={[{ name: 'count', color: 'brand.5', label: 'CVEs' }]}
+          orientation="horizontal"
+          withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
+          yAxisProps={{ width: 130, tick: { fontSize: 10, fill: tickColor } }}
+          xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
+        />
+      </ChartCard>
+    ) : null,
+    'articles-source': (
+      <ChartCard id="articles-source" title="ARTICLES PER SOURCE" isDark={isDark}>
+        <BarChart
+          h={sourceBarData.length * 20 + 16}
+          data={sourceBarData}
+          dataKey="source"
+          series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
+          orientation="horizontal"
+          withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
+          yAxisProps={{ width: 110, tick: { fontSize: 10, fill: tickColor } }}
+          xAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
+        />
+      </ChartCard>
+    ),
+    'articles-14d': (
+      <ChartCard id="articles-14d" title="ARTICLES — LAST 14 DAYS" isDark={isDark}>
+        <AreaChart
+          h={120}
+          data={timelineData}
+          dataKey="date"
+          series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
+          curveType="monotone"
+          withDots={false}
+          fillOpacity={0.15}
+          withTooltip gridAxis="y" tickLine="none"
+          xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, interval: 3 }}
+          yAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
+        />
+      </ChartCard>
+    ),
+    'source-health': (
+      <ChartCard id="source-health" title="SOURCE HEALTH" isDark={isDark}>
+        <DonutChart
+          data={healthData}
+          h={150}
+          withLabelsLine withLabels
+          tooltipDataSource="segment"
+          size={110} thickness={22} paddingAngle={4}
+        />
+      </ChartCard>
+    ),
+  }
 
-  const anyCveVisible     = showCveDaily || showCvssDist || showCveCategories
-  const anyGeneralVisible = showArticleSource || showArticle14d || showSourceHealth
+  // ── Section ordering ─────────────────────────────────────────────────────────
+
+  const chartSectionMap = Object.fromEntries(ALL_CHARTS.map((c) => [c.id, c.section]))
+
+  const cveOrder = chartOrder.filter(
+    (id) => chartSectionMap[id] === 'CVE' && visibleCharts.has(id)
+  )
+  const generalOrder = chartOrder.filter(
+    (id) => chartSectionMap[id] === 'General' && visibleCharts.has(id)
+  )
+
+  const anyCveVisible = cveOrder.length > 0 && cveItems.length > 0
+  const anyGeneralVisible = generalOrder.length > 0
+
+  // ── Drag-and-drop ────────────────────────────────────────────────────────────
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const activeSection = chartSectionMap[active.id as string]
+    const overSection = chartSectionMap[over.id as string]
+    if (activeSection !== overSection) return
+
+    const oldIdx = chartOrder.indexOf(active.id as string)
+    const newIdx = chartOrder.indexOf(over.id as string)
+    if (oldIdx !== -1 && newIdx !== -1) {
+      onReorderCharts(arrayMove(chartOrder, oldIdx, newIdx))
+    }
+  }
 
   return (
-    <Stack gap="md" p="md">
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <Stack gap="md" p="md">
 
-      {/* ── CVE High & Critical charts ──────────────────────────────────── */}
-      {cveItems.length > 0 && anyCveVisible && (
-        <>
-          <Divider
-            label="CVE HIGH &amp; CRITICAL"
-            labelPosition="left"
-            styles={{
-              label: {
-                fontFamily: 'monospace',
-                fontSize: 10,
-                letterSpacing: '0.1em',
-                color: cveHeaderColor,
-                fontWeight: 700,
-              },
-            }}
-          />
+        {/* ── CVE section ──────────────────────────────────────────────── */}
+        {anyCveVisible && (
+          <>
+            <Divider
+              label="CVE HIGH &amp; CRITICAL"
+              labelPosition="left"
+              styles={{
+                label: {
+                  fontFamily: 'monospace', fontSize: 10,
+                  letterSpacing: '0.1em', color: cveHeaderColor, fontWeight: 700,
+                },
+              }}
+            />
+            <SortableContext items={cveOrder} strategy={verticalListSortingStrategy}>
+              <Stack gap="md">
+                {cveOrder.map((id) => chartContent[id] ?? null)}
+              </Stack>
+            </SortableContext>
+          </>
+        )}
 
-          {showCveDaily && (
-            <ChartCard title="CVE DAILY VOLUME — LAST 7 DAYS">
-              <BarChart
-                h={140}
-                data={cveDailyData}
-                dataKey="date"
-                series={[{ name: 'cves', color: 'brand.5', label: 'CVEs' }]}
-                withTooltip
-                withXAxis
-                withYAxis
-                gridAxis="y"
-                tickLine="none"
-                xAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
-                yAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
-              />
-            </ChartCard>
-          )}
+        {/* ── General section ──────────────────────────────────────────── */}
+        {anyGeneralVisible && (
+          <>
+            <Divider
+              label="GENERAL"
+              labelPosition="left"
+              styles={{
+                label: {
+                  fontFamily: 'monospace', fontSize: 10,
+                  letterSpacing: '0.1em',
+                  color: isDark ? 'rgba(0,212,124,0.8)' : 'rgba(0,120,70,0.8)',
+                  fontWeight: 700,
+                },
+              }}
+            />
+            <SortableContext items={generalOrder} strategy={verticalListSortingStrategy}>
+              <Stack gap="md">
+                {generalOrder.map((id) => chartContent[id] ?? null)}
+              </Stack>
+            </SortableContext>
+          </>
+        )}
 
-          {showCvssDist && cvssData.length > 0 && (
-            <ChartCard title="CVSS SCORE DISTRIBUTION">
-              <BarChart
-                h={cvssData.length * 28 + 16}
-                data={cvssData}
-                dataKey="band"
-                series={[{ name: 'count', color: 'brand.5', label: 'CVEs' }]}
-                orientation="horizontal"
-                withXAxis
-                withYAxis
-                withTooltip
-                gridAxis="x"
-                tickLine="none"
-                yAxisProps={{ width: 120, tick: { fontSize: 10, fill: tickColor } }}
-                xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
-              />
-            </ChartCard>
-          )}
-
-          {showCveCategories && topCategoriesData.length > 0 && (
-            <ChartCard title="TOP AFFECTED CATEGORIES">
-              <BarChart
-                h={topCategoriesData.length * 26 + 16}
-                data={topCategoriesData}
-                dataKey="category"
-                series={[{ name: 'count', color: 'brand.5', label: 'CVEs' }]}
-                orientation="horizontal"
-                withXAxis
-                withYAxis
-                withTooltip
-                gridAxis="x"
-                tickLine="none"
-                yAxisProps={{ width: 130, tick: { fontSize: 10, fill: tickColor } }}
-                xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
-              />
-            </ChartCard>
-          )}
-        </>
-      )}
-
-      {/* ── General charts ─────────────────────────────────────────────── */}
-      {anyGeneralVisible && (
-        <>
-          <Divider
-            label="GENERAL"
-            labelPosition="left"
-            styles={{
-              label: {
-                fontFamily: 'monospace',
-                fontSize: 10,
-                letterSpacing: '0.1em',
-                color: isDark ? 'rgba(0,212,124,0.8)' : 'rgba(0,120,70,0.8)',
-                fontWeight: 700,
-              },
-            }}
-          />
-
-          {showArticleSource && (
-            <ChartCard title="ARTICLES PER SOURCE">
-              <BarChart
-                h={sourceBarData.length * 20 + 16}
-                data={sourceBarData}
-                dataKey="source"
-                series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
-                orientation="horizontal"
-                withXAxis
-                withYAxis
-                withTooltip
-                gridAxis="x"
-                tickLine="none"
-                yAxisProps={{ width: 110, tick: { fontSize: 10, fill: tickColor } }}
-                xAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
-              />
-            </ChartCard>
-          )}
-
-          {showArticle14d && (
-            <ChartCard title="ARTICLES — LAST 14 DAYS">
-              <AreaChart
-                h={120}
-                data={timelineData}
-                dataKey="date"
-                series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
-                curveType="monotone"
-                withDots={false}
-                fillOpacity={0.15}
-                withTooltip
-                gridAxis="y"
-                tickLine="none"
-                xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, interval: 3 }}
-                yAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
-              />
-            </ChartCard>
-          )}
-
-          {showSourceHealth && (
-            <ChartCard title="SOURCE HEALTH">
-              <DonutChart
-                data={healthData}
-                h={150}
-                withLabelsLine
-                withLabels
-                tooltipDataSource="segment"
-                size={110}
-                thickness={22}
-                paddingAngle={4}
-              />
-            </ChartCard>
-          )}
-        </>
-      )}
-
-    </Stack>
+      </Stack>
+    </DndContext>
   )
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+// ── Sortable chart card ────────────────────────────────────────────────────────
+
+interface ChartCardProps {
+  id: string
+  title: string
+  isDark: boolean
+  children: React.ReactNode
+}
+
+function ChartCard({ id, title, isDark, children }: ChartCardProps) {
+  const {
+    attributes, listeners, setNodeRef, setActivatorNodeRef,
+    transform, transition, isDragging,
+  } = useSortable({ id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: 'relative',
+  }
+
   return (
-    <Paper p="md" radius="sm" withBorder>
-      <Text size="xs" ff="monospace" c="dimmed" mb="sm" style={{ letterSpacing: '0.1em' }}>
-        {title}
-      </Text>
+    <Paper
+      ref={setNodeRef}
+      style={style}
+      p="md"
+      radius="sm"
+      withBorder
+    >
+      <Box style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <Box
+          ref={setActivatorNodeRef}
+          {...listeners}
+          {...attributes}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'grab',
+            color: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+            flexShrink: 0,
+            touchAction: 'none',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.color = isDark
+              ? 'rgba(0,212,124,0.6)'
+              : 'rgba(0,120,70,0.5)'
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.color = isDark
+              ? 'rgba(255,255,255,0.2)'
+              : 'rgba(0,0,0,0.2)'
+          }}
+        >
+          <IconGripVertical size={14} />
+        </Box>
+        <Text size="xs" ff="monospace" c="dimmed" style={{ letterSpacing: '0.1em', flex: 1 }}>
+          {title}
+        </Text>
+      </Box>
       {children}
     </Paper>
   )

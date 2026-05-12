@@ -61,6 +61,9 @@ export default function App() {
   const [visibleCharts, setVisibleCharts] = useState<Set<string>>(
     () => new Set(ALL_CHARTS.map((c) => c.id))
   )
+  const [chartOrder, setChartOrder] = useState<string[]>(
+    () => ALL_CHARTS.map((c) => c.id)
+  )
   const isDark = useComputedColorScheme('dark') === 'dark'
 
   const handleToggleSource = useCallback((name: string) => {
@@ -81,6 +84,10 @@ export default function App() {
       else next.add(id)
       return next
     })
+  }, [])
+
+  const handleReorderCharts = useCallback((newOrder: string[]) => {
+    setChartOrder(newOrder)
   }, [])
 
   const showStats = visibleCharts.size > 0
@@ -264,7 +271,12 @@ export default function App() {
                       </Center>
                     }
                   >
-                    <StatsPanel data={data} visibleCharts={visibleCharts} />
+                    <StatsPanel
+                      data={data}
+                      visibleCharts={visibleCharts}
+                      chartOrder={chartOrder}
+                      onReorderCharts={handleReorderCharts}
+                    />
                   </Suspense>
                 </Box>
               </Panel>
