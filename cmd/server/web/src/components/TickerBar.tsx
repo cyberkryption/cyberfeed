@@ -14,8 +14,8 @@ export function TickerBar({ items }: TickerBarProps) {
   // Duplicate so the second copy fills the gap when the first scrolls off.
   const doubled = [...items, ...items]
 
-  // ~6s per item (2× slower than before); minimum 40s for short lists.
-  const durationS = Math.max(40, items.length * 6)
+  // ~9s per item; minimum 60s for short lists.
+  const durationS = Math.max(60, items.length * 9)
 
   const bg      = isDark ? '#00d47c' : '#00a85f'
   const bgLabel = isDark ? '#00b568' : '#008f50'
@@ -27,7 +27,7 @@ export function TickerBar({ items }: TickerBarProps) {
     <Box
       style={{
         width: '100%',
-        height: 34,
+        height: 48,
         flexShrink: 0,
         display: 'flex',
         alignItems: 'stretch',
@@ -48,9 +48,9 @@ export function TickerBar({ items }: TickerBarProps) {
           borderRight: `1px solid ${border}`,
         }}
       >
-        <IconAlertTriangle size={12} color={text} />
+        <IconAlertTriangle size={16} color={text} />
         <Text
-          size="xs"
+          size="sm"
           fw={700}
           ff="monospace"
           style={{ color: text, letterSpacing: '0.1em', whiteSpace: 'nowrap' }}
@@ -83,9 +83,9 @@ export function TickerBar({ items }: TickerBarProps) {
                 href={item.link || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                size="xs"
+                size="sm"
                 ff="monospace"
-                style={{ color: text, textDecoration: 'none', padding: '0 12px', whiteSpace: 'nowrap' }}
+                style={{ color: text, textDecoration: 'none', padding: '0 16px', whiteSpace: 'nowrap' }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLElement
                   el.style.textDecoration = 'underline'
@@ -99,7 +99,7 @@ export function TickerBar({ items }: TickerBarProps) {
               >
                 {item.title}
               </Text>
-              <span style={{ color: textDim, fontSize: 9, userSelect: 'none' }}>◆</span>
+              <span style={{ color: textDim, fontSize: 11, userSelect: 'none' }}>◆</span>
             </span>
           ))}
         </Box>
