@@ -43,7 +43,7 @@ func main() {
 	defer stop()
 
 	agg := aggregator.New(feeds, logger)
-	go agg.StartAutoRefresh(ctx, 15*time.Minute)
+	go agg.StartAutoRefresh(ctx, 20*time.Minute)
 
 	srv, err := server.New(server.Config{
 		Addr:   ":8888",

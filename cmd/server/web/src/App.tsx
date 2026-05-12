@@ -109,6 +109,7 @@ export default function App() {
         lastRefreshed={lastRefreshed}
         totalItems={data?.items.length ?? 0}
         activeSources={activeSources}
+        serverUpdatedAt={data?.updatedAt ?? null}
       />
 
       {/* Body row: sidebar | resizable(feed + stats) */}
@@ -197,7 +198,7 @@ export default function App() {
                 <Group justify="center" mt="xl" mb="md">
                   <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
                     SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
-                    {' · '}NEXT REFRESH IN ~15 MINUTES
+                    {' · '}NEXT REFRESH IN ~20 MINUTES
                   </Text>
                 </Group>
               )}
