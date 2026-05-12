@@ -95,7 +95,12 @@ func (a *Aggregator) Refresh(ctx context.Context) error {
 	}
 
 	sort.Slice(allItems, func(i, j int) bool {
-		return allItems[i].Published.After(allItems[j].Published)
+		ti, tj := allItems[i].Published, allItems[j].Published
+		// Zero-time items (no pubDate) sink to the bottom.
+		if ti.IsZero() != tj.IsZero() {
+			return tj.IsZero()
+		}
+		return ti.After(tj)
 	})
 
 	sort.Slice(statuses, func(i, j int) bool {

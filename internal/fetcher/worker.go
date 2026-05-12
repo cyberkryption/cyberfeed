@@ -13,6 +13,16 @@ const (
 	userAgent    = "CyberFeedAggregator/1.0 (+https://github.com/cyberfeed)"
 )
 
+// httpClient is shared across all workers so TCP connections are reused.
+var httpClient = &http.Client{
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return fmt.Errorf("too many redirects")
+		}
+		return nil
+	},
+}
+
 // Worker fetches a single feed and sends the result on the provided channel.
 // It is designed to run as a goroutine. The context allows cancellation.
 func Worker(ctx context.Context, cfg FeedConfig, results chan<- FeedResult) {
@@ -36,8 +46,7 @@ func fetch(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml")
 
-	client := &http.Client{Timeout: fetchTimeout}
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", cfg.Name, err)
 	}

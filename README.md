@@ -1,6 +1,6 @@
 # CyberFeed
 
-A multi-threaded cybersecurity RSS aggregator. Pulls 11 security feeds concurrently,
+A multi-threaded cybersecurity RSS aggregator. Pulls 12 security feeds concurrently,
 each in its own goroutine, and serves them via a React+Mantine web UI as a **single binary**.
 
 ## Architecture
@@ -39,7 +39,7 @@ main goroutine
         ├── Worker goroutine  (feed 1)  ─┐
         ├── Worker goroutine  (feed 2)   │
         ├── ...                          ├── results chan<- FeedResult
-        └── Worker goroutine  (feed 11) ─┘
+        └── Worker goroutine  (feed 12) ─┘
               collected → sorted → stored as Snapshot (RWMutex)
 ```
 
@@ -51,11 +51,12 @@ so the HTTP handler never blocks the refresh cycle.
 
 | Source | URL |
 |--------|-----|
-| CCCS Alerts & Advisories | cyber.gc.ca |
-| Australian Cyber Security Centre | cyber.gov.au |
+| CVE High and Critical | cvefeed.io |
+| CVE Feeds Newsroom | cvefeed.io |
+| NCSC Threat Reports | ncsc.gov.uk |
 | Microsoft Security Blog | microsoft.com |
+| Risky Business | risky.biz |
 | SANS Internet Storm Center | isc.sans.edu |
-| Google Project Zero | googleprojectzero.blogspot.com |
 | PortSwigger Research | portswigger.net |
 | AWS Security Blog | aws.amazon.com |
 | TrustedSec | trustedsec.com |

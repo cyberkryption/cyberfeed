@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"io/fs"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -64,9 +65,8 @@ func main() {
 	}()
 
 	if err := srv.ListenAndServe(); err != nil {
-		if strings.Contains(err.Error(), "bind") ||
-			strings.Contains(err.Error(), "address already in use") ||
-			strings.Contains(err.Error(), "Only one usage") {
+		var opErr *net.OpError
+		if errors.As(err, &opErr) && opErr.Op == "listen" {
 			logger.Error("port already in use — stop the existing cyberfeed process first",
 				"addr", ":8888", "error", err)
 		} else {
