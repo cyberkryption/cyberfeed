@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Stack, Paper, Text, Divider, useComputedColorScheme, Box } from '@mantine/core'
+import { Stack, Paper, Text, Divider, useComputedColorScheme, Box, Group } from '@mantine/core'
 import { BarChart, AreaChart, DonutChart } from '@mantine/charts'
 import {
   DndContext,
@@ -81,26 +81,27 @@ export default function StatsPanel({
   }, [cveItems])
 
   const cvssData = useMemo(() => {
-    const counts: Record<string, number> = {
-      'Score Unknown': 0, '7.0 – 7.9': 0, '8.0 – 8.9': 0,
-      '9.0 – 9.9': 0, '10.0 (Critical)': 0,
-    }
+    const bands = [
+      { key: 'critical-10', label: 'CRITICAL',  sublabel: 'CVSS 10.0',     accent: '#c92a2a', count: 0 },
+      { key: 'critical-9',  label: 'CRITICAL',  sublabel: 'CVSS 9.0 – 9.9', accent: '#e03131', count: 0 },
+      { key: 'high-8',      label: 'HIGH',       sublabel: 'CVSS 8.0 – 8.9', accent: '#e8590c', count: 0 },
+      { key: 'high-7',      label: 'HIGH',       sublabel: 'CVSS 7.0 – 7.9', accent: '#f08c00', count: 0 },
+      { key: 'unknown',     label: 'UNKNOWN',    sublabel: 'No score found',  accent: '#868e96', count: 0 },
+    ]
     for (const item of cveItems) {
       const text = `${item.title ?? ''} ${item.description ?? ''}`
       const match = text.match(CVSS_RE)
       if (!match) {
-        counts['Score Unknown']++
+        bands[4].count++
       } else {
         const score = parseFloat(match[1])
-        if (score === 10.0)    counts['10.0 (Critical)']++
-        else if (score >= 9.0) counts['9.0 – 9.9']++
-        else if (score >= 8.0) counts['8.0 – 8.9']++
-        else                   counts['7.0 – 7.9']++
+        if (score === 10.0)    bands[0].count++
+        else if (score >= 9.0) bands[1].count++
+        else if (score >= 8.0) bands[2].count++
+        else                   bands[3].count++
       }
     }
-    return Object.entries(counts)
-      .filter(([, count]) => count > 0)
-      .map(([band, count]) => ({ band, count }))
+    return bands
   }, [cveItems])
 
   const topCategoriesData = useMemo(() => {
@@ -179,20 +180,18 @@ export default function StatsPanel({
         />
       </ChartCard>
     ),
-    'cvss-dist': cvssData.length > 0 ? (
-      <ChartCard id="cvss-dist" title="CVSS SCORE DISTRIBUTION" isDark={isDark}>
-        <BarChart
-          h={cvssData.length * 28 + 16}
-          data={cvssData}
-          dataKey="band"
-          series={[{ name: 'count', color: 'brand.5', label: 'CVEs' }]}
-          orientation="horizontal"
-          withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
-          yAxisProps={{ width: 120, tick: { fontSize: 10, fill: tickColor } }}
-          xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
-        />
+    'cvss-dist': (
+      <ChartCard id="cvss-dist" title="CVE SEVERITY SCORECARD" isDark={isDark}>
+        <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {cvssData.slice(0, 4).map(({ key, ...rest }) => (
+            <ScorecardCell key={key} {...rest} isDark={isDark} />
+          ))}
+          <Box style={{ gridColumn: '1 / -1' }}>
+            {(() => { const { key: _k, ...rest } = cvssData[4]; return <ScorecardCell {...rest} isDark={isDark} /> })()}
+          </Box>
+        </Box>
       </ChartCard>
-    ) : null,
+    ),
     'cve-categories': topCategoriesData.length > 0 ? (
       <ChartCard id="cve-categories" title="TOP AFFECTED CATEGORIES" isDark={isDark}>
         <BarChart
@@ -400,6 +399,55 @@ function ChartCard({ id, title, isDark, children }: ChartCardProps) {
         </Text>
       </Box>
       {children}
+    </Paper>
+  )
+}
+
+// ── Scorecard cell ─────────────────────────────────────────────────────────────
+
+interface ScorecardCellProps {
+  label: string
+  sublabel: string
+  accent: string
+  count: number
+  isDark: boolean
+}
+
+function ScorecardCell({ label, sublabel, accent, count, isDark }: ScorecardCellProps) {
+  return (
+    <Paper
+      radius="sm"
+      withBorder
+      p="sm"
+      style={{
+        borderTop: `3px solid ${accent}`,
+        background: isDark
+          ? `color-mix(in srgb, ${accent} 8%, transparent)`
+          : `color-mix(in srgb, ${accent} 5%, transparent)`,
+      }}
+    >
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <Box>
+          <Text
+            size="xs"
+            ff="monospace"
+            fw={700}
+            style={{ letterSpacing: '0.08em', color: accent, lineHeight: 1 }}
+          >
+            {label}
+          </Text>
+          <Text size="xs" c="dimmed" ff="monospace" style={{ fontSize: 9, letterSpacing: '0.06em', marginTop: 2 }}>
+            {sublabel}
+          </Text>
+        </Box>
+        <Text
+          fw={800}
+          ff="monospace"
+          style={{ fontSize: 28, lineHeight: 1, color: accent }}
+        >
+          {count}
+        </Text>
+      </Group>
     </Paper>
   )
 }
