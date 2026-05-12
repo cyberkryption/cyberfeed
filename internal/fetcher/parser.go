@@ -6,7 +6,12 @@ import (
 	"html"
 	"strings"
 	"time"
+
+	"github.com/microcosm-cc/bluemonday"
 )
+
+// stripHTML sanitises HTML using a strict allowlist (no tags, no attributes).
+var stripHTML = bluemonday.StrictPolicy()
 
 // --- RSS 2.0 structures ---
 
@@ -112,7 +117,7 @@ func parseRSS(data []byte, cfg FeedConfig) ([]FeedItem, error) {
 			Source:      cfg.Name,
 			SourceURL:   cfg.URL,
 			Title:       cleanText(ri.Title),
-			Link:        strings.TrimSpace(ri.Link),
+			Link:        sanitizeURL(strings.TrimSpace(ri.Link)),
 			Description: cleanHTML(desc),
 			Published:   pub,
 			Author:      cleanText(author),
@@ -161,7 +166,7 @@ func parseAtom(data []byte, cfg FeedConfig) ([]FeedItem, error) {
 			Source:      cfg.Name,
 			SourceURL:   cfg.URL,
 			Title:       cleanText(e.Title.Value),
-			Link:        strings.TrimSpace(link),
+			Link:        sanitizeURL(strings.TrimSpace(link)),
 			Description: cleanHTML(desc),
 			Published:   pub,
 			Author:      cleanText(e.Author.Name),
@@ -197,9 +202,8 @@ func cleanText(s string) string {
 	return strings.TrimSpace(html.UnescapeString(s))
 }
 
-// cleanHTML strips HTML tags using the encoding/xml tokeniser, which correctly
-// handles nested tags, self-closing elements, CDATA sections, and malformed
-// markup that would confuse a simple character-scan approach.
+// cleanHTML strips all HTML tags via bluemonday's strict policy, then decodes
+// entities, collapses whitespace, and truncates to 400 runes.
 func cleanHTML(s string) string {
 	s = strings.TrimSpace(s)
 
@@ -207,38 +211,25 @@ func cleanHTML(s string) string {
 	s = strings.TrimPrefix(s, "<![CDATA[")
 	s = strings.TrimSuffix(s, "]]>")
 
-	var b strings.Builder
-	decoder := xml.NewDecoder(strings.NewReader(s))
-	decoder.Strict = false
-	decoder.AutoClose = xml.HTMLAutoClose
-	decoder.Entity = xml.HTMLEntity
-
-	for {
-		tok, err := decoder.Token()
-		if err != nil {
-			break
-		}
-		switch t := tok.(type) {
-		case xml.CharData:
-			b.Write(t)
-		case xml.EndElement:
-			// Add a space after block-level elements to preserve word boundaries.
-			switch t.Name.Local {
-			case "p", "div", "li", "br", "td", "th", "h1", "h2", "h3", "h4", "h5", "h6":
-				b.WriteRune(' ')
-			}
-		}
-	}
-
-	result := html.UnescapeString(b.String())
-	// Collapse whitespace.
+	result := stripHTML.Sanitize(s)
+	result = html.UnescapeString(result)
 	result = strings.Join(strings.Fields(result), " ")
-	// Truncate long descriptions.
+
 	const maxLen = 400
 	runes := []rune(result)
 	if len(runes) > maxLen {
 		result = string(runes[:maxLen]) + "…"
 	}
 	return result
+}
+
+// sanitizeURL returns u unchanged when its scheme is http or https, and returns
+// an empty string for any other scheme (javascript:, data:, vbscript:, etc.).
+func sanitizeURL(u string) string {
+	lower := strings.ToLower(u)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return u
+	}
+	return ""
 }
 
