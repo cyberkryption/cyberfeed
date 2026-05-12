@@ -127,7 +127,7 @@ export function Header({
               CYBERFEED
             </Text>
             <Text size="xs" c="dimmed" ff="monospace" style={{ letterSpacing: '0.08em' }}>
-              SECURITY INTELLIGENCE
+              CYBER SECURITY INTELLIGENCE
             </Text>
           </Box>
         </Group>
