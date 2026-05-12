@@ -14,11 +14,14 @@ export function TickerBar({ items }: TickerBarProps) {
   // Duplicate so the second copy fills the gap when the first scrolls off.
   const doubled = [...items, ...items]
 
-  // ~3s per item gives comfortable reading speed; minimum 20s for short lists.
-  const durationS = Math.max(20, items.length * 3)
+  // ~6s per item (2× slower than before); minimum 40s for short lists.
+  const durationS = Math.max(40, items.length * 6)
 
-  const red = isDark ? '#ff8787' : '#c92a2a'
-  const redDim = isDark ? 'rgba(255,135,135,0.3)' : 'rgba(200,30,30,0.22)'
+  const bg      = isDark ? '#00d47c' : '#00a85f'
+  const bgLabel = isDark ? '#00b568' : '#008f50'
+  const border  = isDark ? '#009e5c' : '#007840'
+  const text    = '#000000'
+  const textDim = 'rgba(0,0,0,0.35)'
 
   return (
     <Box
@@ -29,8 +32,8 @@ export function TickerBar({ items }: TickerBarProps) {
         display: 'flex',
         alignItems: 'stretch',
         overflow: 'hidden',
-        background: isDark ? 'rgba(200,0,0,0.1)' : 'rgba(200,30,30,0.05)',
-        borderBottom: `1px solid ${isDark ? 'rgba(220,50,50,0.22)' : 'rgba(200,30,30,0.15)'}`,
+        background: bg,
+        borderBottom: `1px solid ${border}`,
       }}
     >
       {/* Static label */}
@@ -41,16 +44,16 @@ export function TickerBar({ items }: TickerBarProps) {
           alignItems: 'center',
           gap: 6,
           padding: '0 14px',
-          background: isDark ? 'rgba(200,0,0,0.22)' : 'rgba(200,30,30,0.1)',
-          borderRight: `1px solid ${isDark ? 'rgba(220,50,50,0.28)' : 'rgba(200,30,30,0.18)'}`,
+          background: bgLabel,
+          borderRight: `1px solid ${border}`,
         }}
       >
-        <IconAlertTriangle size={12} color="#e03131" />
+        <IconAlertTriangle size={12} color={text} />
         <Text
           size="xs"
           fw={700}
           ff="monospace"
-          style={{ color: '#e03131', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}
+          style={{ color: text, letterSpacing: '0.1em', whiteSpace: 'nowrap' }}
         >
           CRITICAL CVEs
         </Text>
@@ -82,21 +85,21 @@ export function TickerBar({ items }: TickerBarProps) {
                 rel="noopener noreferrer"
                 size="xs"
                 ff="monospace"
-                style={{ color: red, textDecoration: 'none', padding: '0 12px', whiteSpace: 'nowrap' }}
+                style={{ color: text, textDecoration: 'none', padding: '0 12px', whiteSpace: 'nowrap' }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLElement
                   el.style.textDecoration = 'underline'
-                  el.style.color = isDark ? '#ffa8a8' : '#a61e1e'
+                  el.style.opacity = '0.75'
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLElement
                   el.style.textDecoration = 'none'
-                  el.style.color = red
+                  el.style.opacity = '1'
                 }}
               >
                 {item.title}
               </Text>
-              <span style={{ color: redDim, fontSize: 9, userSelect: 'none' }}>◆</span>
+              <span style={{ color: textDim, fontSize: 9, userSelect: 'none' }}>◆</span>
             </span>
           ))}
         </Box>
