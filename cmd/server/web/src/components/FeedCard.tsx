@@ -10,7 +10,8 @@ interface FeedCardProps {
   searchQuery: string
 }
 
-function highlight(text: string, query: string): React.ReactNode {
+function highlight(text: string | null | undefined, query: string): React.ReactNode {
+  if (!text) return ''
   if (!query.trim()) return text
   const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
   return parts.map((part, i) =>
@@ -148,7 +149,7 @@ export function FeedCard({ item, searchQuery }: FeedCardProps) {
               </Group>
             )}
           </Group>
-          {item.categories?.length > 0 && (
+          {(item.categories?.length ?? 0) > 0 && (
             <Group gap={4} align="center">
               <IconTag size={11} style={{ opacity: 0.4 }} />
               {item.categories.slice(0, 3).map((cat) => (
