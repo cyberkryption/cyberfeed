@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -103,7 +104,16 @@ func (a *Aggregator) Refresh(ctx context.Context) error {
 		return ti.After(tj)
 	})
 
+	// Sort sources: RSS/Atom feeds alphabetically first, CSV indicator feeds
+	// alphabetically last (detected by .csv URL extension).
+	isCSV := func(s FeedStatus) bool {
+		return strings.HasSuffix(strings.ToLower(s.URL), ".csv")
+	}
 	sort.Slice(statuses, func(i, j int) bool {
+		iCSV, jCSV := isCSV(statuses[i]), isCSV(statuses[j])
+		if iCSV != jCSV {
+			return jCSV // non-CSV before CSV
+		}
 		return statuses[i].Name < statuses[j].Name
 	})
 
