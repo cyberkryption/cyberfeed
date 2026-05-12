@@ -217,7 +217,7 @@ export default function StatsPanel({
           h={sourceBarData.length * 20 + 16}
           data={sourceBarData}
           dataKey="source"
-          series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
+          series={[{ name: 'articles', color: 'red.6', label: 'Articles' }]}
           orientation="horizontal"
           withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
           yAxisProps={{ width: 110, tick: { fontSize: 10, fill: tickColor } }}
@@ -231,7 +231,7 @@ export default function StatsPanel({
           h={120}
           data={timelineData}
           dataKey="date"
-          series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
+          series={[{ name: 'articles', color: 'orange.5', label: 'Articles' }]}
           curveType="monotone"
           withDots={false}
           fillOpacity={0.15}
