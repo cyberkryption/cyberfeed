@@ -55,12 +55,24 @@ function ResizeHandle({ isDark }: { isDark: boolean }) {
 export default function App() {
   const { data, loading, error, refresh, lastRefreshed } = useFeeds()
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
+  const [disabledSources, setDisabledSources] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'date' | 'source'>('date')
   const [visibleCharts, setVisibleCharts] = useState<Set<string>>(
     () => new Set(ALL_CHARTS.map((c) => c.id))
   )
   const isDark = useComputedColorScheme('dark') === 'dark'
+
+  const handleToggleSource = useCallback((name: string) => {
+    setDisabledSources((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+    // deselect if the toggled source was selected
+    setSelectedSource((sel) => (sel === name ? null : sel))
+  }, [])
 
   const handleToggleChart = useCallback((id: string) => {
     setVisibleCharts((prev) => {
@@ -75,7 +87,7 @@ export default function App() {
 
   const filtered = useMemo<FeedItem[]>(() => {
     if (!data?.items) return []
-    let items = data.items
+    let items = data.items.filter((i) => !disabledSources.has(i.source))
 
     if (selectedSource) {
       items = items.filter((i) => i.source === selectedSource)
@@ -102,7 +114,7 @@ export default function App() {
     }
 
     return items
-  }, [data, selectedSource, search, sortBy])
+  }, [data, selectedSource, disabledSources, search, sortBy])
 
   const activeSources = data?.sources.filter((s) => s.ok).length ?? 0
 
@@ -128,7 +140,9 @@ export default function App() {
       />
 
       <TickerBar
-        items={(data?.items ?? []).filter((i) => i.source === 'CVE High and Critical')}
+        items={(data?.items ?? []).filter(
+          (i) => i.source === 'CVE High and Critical' && !disabledSources.has(i.source)
+        )}
       />
 
       {/* Body row: sidebar | resizable(feed + stats) */}
@@ -140,6 +154,8 @@ export default function App() {
             sources={data.sources}
             selectedSource={selectedSource}
             onSelectSource={setSelectedSource}
+            disabledSources={disabledSources}
+            onToggleSource={handleToggleSource}
           />
         )}
 
