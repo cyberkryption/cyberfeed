@@ -45,3 +45,8 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 212, 124, 0.6);
 }
+
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
