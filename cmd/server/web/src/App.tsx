@@ -3,6 +3,7 @@ import {
   Box, Stack, Text, Center, Loader, Alert,
   Group, useComputedColorScheme
 } from '@mantine/core'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import { Header } from './components/Header'
 import { SourcesSidebar } from './components/SourcesSidebar'
@@ -12,6 +13,42 @@ import { useFeeds } from './hooks/useFeeds'
 import type { FeedItem } from './types'
 
 const StatsPanel = lazy(() => import('./components/StatsPanel'))
+
+function ResizeHandle({ isDark }: { isDark: boolean }) {
+  return (
+    <Box
+      style={{
+        width: 8,
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'col-resize',
+        flexShrink: 0,
+        borderLeft: isDark ? '1px solid rgba(0,212,124,0.1)' : '1px solid rgba(0,120,70,0.08)',
+        transition: 'background 0.15s',
+        userSelect: 'none',
+      }}
+      onMouseEnter={(e) => {
+        ;(e.currentTarget as HTMLElement).style.background = isDark
+          ? 'rgba(0,212,124,0.08)'
+          : 'rgba(0,120,70,0.06)'
+      }}
+      onMouseLeave={(e) => {
+        ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+      }}
+    >
+      <Box
+        style={{
+          width: 3,
+          height: 32,
+          borderRadius: 2,
+          background: isDark ? 'rgba(0,212,124,0.25)' : 'rgba(0,120,70,0.18)',
+        }}
+      />
+    </Box>
+  )
+}
 
 export default function App() {
   const { data, loading, error, refresh, lastRefreshed } = useFeeds()
@@ -74,10 +111,10 @@ export default function App() {
         activeSources={activeSources}
       />
 
-      {/* Body row: sidebar | feed | stats */}
+      {/* Body row: sidebar | resizable(feed + stats) */}
       <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
 
-        {/* Left sources sidebar */}
+        {/* Left sources sidebar — fixed width, outside the resizable group */}
         {data && (
           <SourcesSidebar
             sources={data.sources}
@@ -86,110 +123,118 @@ export default function App() {
           />
         )}
 
-        {/* Feed list — minWidth:0 lets it shrink when the stats panel opens */}
-        <Box style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {data && (
-            <Toolbar
-              search={search}
-              onSearchChange={setSearch}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              visibleCount={filtered.length}
-              totalCount={data.items.length}
-              showStats={showStats}
-              onToggleStats={() => setShowStats((v) => !v)}
-            />
-          )}
-
-          <Box style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
-            {error && !data && (
-              <Alert
-                icon={<IconAlertTriangle size={16} />}
-                color="red"
-                title="Failed to load feeds"
-                mt="xl"
-                maw={600}
-                mx="auto"
-              >
-                {error} — The server may still be loading feeds for the first time. Please wait and refresh.
-              </Alert>
-            )}
-
-            {loading && !data && (
-              <Center h={300}>
-                <Stack align="center" gap="md">
-                  <Loader size="lg" color="brand" type="dots" />
-                  <Text c="dimmed" ff="monospace" size="sm" style={{ letterSpacing: '0.08em' }}>
-                    FETCHING FEEDS…
-                  </Text>
-                  <Text c="dimmed" size="xs">
-                    This may take up to 15 seconds on first load
-                  </Text>
-                </Stack>
-              </Center>
-            )}
-
+        {/* Feed + stats: draggable splitter between them */}
+        <PanelGroup
+          direction="horizontal"
+          style={{ flex: 1, minWidth: 0 }}
+        >
+          {/* Feed panel */}
+          <Panel defaultSize={65} minSize={40} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {data && (
-              <>
-                {filtered.length === 0 ? (
-                  <Center h={200}>
-                    <Text c="dimmed" ff="monospace" size="sm">
-                      {search ? 'NO RESULTS FOUND' : 'NO ITEMS TO DISPLAY'}
+              <Toolbar
+                search={search}
+                onSearchChange={setSearch}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                visibleCount={filtered.length}
+                totalCount={data.items.length}
+                showStats={showStats}
+                onToggleStats={() => setShowStats((v) => !v)}
+              />
+            )}
+
+            <Box style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+              {error && !data && (
+                <Alert
+                  icon={<IconAlertTriangle size={16} />}
+                  color="red"
+                  title="Failed to load feeds"
+                  mt="xl"
+                  maw={600}
+                  mx="auto"
+                >
+                  {error} — The server may still be loading feeds for the first time. Please wait and refresh.
+                </Alert>
+              )}
+
+              {loading && !data && (
+                <Center h={300}>
+                  <Stack align="center" gap="md">
+                    <Loader size="lg" color="brand" type="dots" />
+                    <Text c="dimmed" ff="monospace" size="sm" style={{ letterSpacing: '0.08em' }}>
+                      FETCHING FEEDS…
                     </Text>
-                  </Center>
-                ) : (
-                  <Stack gap="sm" maw={900}>
-                    {filtered.map((item, idx) => (
-                      <FeedCard
-                        key={`${item.source}-${item.link}-${idx}`}
-                        item={item}
-                        searchQuery={search}
-                      />
-                    ))}
+                    <Text c="dimmed" size="xs">
+                      This may take up to 15 seconds on first load
+                    </Text>
                   </Stack>
-                )}
-              </>
-            )}
-
-            {data && (
-              <Group justify="center" mt="xl" mb="md">
-                <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
-                  SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
-                  {' · '}NEXT REFRESH IN ~15 MINUTES
-                </Text>
-              </Group>
-            )}
-          </Box>
-        </Box>
-
-        {/* Right stats panel */}
-        {data && showStats && (
-          <Box
-            style={{
-              width: 360,
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              overflowY: 'auto',
-              borderLeft: isDark
-                ? '1px solid rgba(0,212,124,0.1)'
-                : '1px solid rgba(0,120,70,0.08)',
-              background: isDark
-                ? 'rgba(13,18,16,0.6)'
-                : 'rgba(238,247,242,0.6)',
-            }}
-          >
-            <Suspense
-              fallback={
-                <Center h={200}>
-                  <Loader size="sm" color="brand" type="dots" />
                 </Center>
-              }
-            >
-              <StatsPanel data={data} />
-            </Suspense>
-          </Box>
-        )}
+              )}
+
+              {data && (
+                <>
+                  {filtered.length === 0 ? (
+                    <Center h={200}>
+                      <Text c="dimmed" ff="monospace" size="sm">
+                        {search ? 'NO RESULTS FOUND' : 'NO ITEMS TO DISPLAY'}
+                      </Text>
+                    </Center>
+                  ) : (
+                    <Stack gap="sm" maw={900}>
+                      {filtered.map((item, idx) => (
+                        <FeedCard
+                          key={`${item.source}-${item.link}-${idx}`}
+                          item={item}
+                          searchQuery={search}
+                        />
+                      ))}
+                    </Stack>
+                  )}
+                </>
+              )}
+
+              {data && (
+                <Group justify="center" mt="xl" mb="md">
+                  <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
+                    SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
+                    {' · '}NEXT REFRESH IN ~15 MINUTES
+                  </Text>
+                </Group>
+              )}
+            </Box>
+          </Panel>
+
+          {/* Drag handle + stats panel — only rendered when stats are visible */}
+          {data && showStats && (
+            <>
+              <PanelResizeHandle>
+                <ResizeHandle isDark={isDark} />
+              </PanelResizeHandle>
+
+              <Panel defaultSize={35} minSize={20} maxSize={55} style={{ overflow: 'hidden' }}>
+                <Box
+                  style={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflowY: 'auto',
+                    background: isDark ? 'rgba(13,18,16,0.6)' : 'rgba(238,247,242,0.6)',
+                  }}
+                >
+                  <Suspense
+                    fallback={
+                      <Center h={200}>
+                        <Loader size="sm" color="brand" type="dots" />
+                      </Center>
+                    }
+                  >
+                    <StatsPanel data={data} />
+                  </Suspense>
+                </Box>
+              </Panel>
+            </>
+          )}
+        </PanelGroup>
       </Box>
     </Box>
   )
