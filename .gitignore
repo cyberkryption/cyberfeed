@@ -1,0 +1,10 @@
+# Downloaded C2 intel CSV cache
+data/
+
+# Go build outputs
+*.exe
+*.test
+*.out
+
+# Frontend build (embedded via go:embed — only dist/ in cmd/server/web is kept)
+cmd/server/web/node_modules/
