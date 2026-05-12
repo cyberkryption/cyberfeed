@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -13,11 +14,12 @@ import (
 )
 
 const (
-	fetchTimeout = 15 * time.Second
-	rssBodyLimit = 5 << 20  // 5 MB — sufficient for XML/Atom feeds
-	csvBodyLimit = 25 << 20 // 25 MB — C2 intel CSVs can be large
-	csvCacheDir  = "data/c2feeds"
-	userAgent    = "CyberFeedAggregator/1.0 (+https://github.com/cyberfeed)"
+	fetchTimeout    = 15 * time.Second
+	csvFetchTimeout = 45 * time.Second // larger files need more time
+	rssBodyLimit    = 5 << 20          // 5 MB — sufficient for XML/Atom feeds
+	csvBodyLimit    = 25 << 20         // 25 MB — C2 intel CSVs can be large
+	csvCacheDir     = "data/c2feeds"
+	userAgent       = "CyberFeedAggregator/1.0 (+https://github.com/cyberfeed)"
 )
 
 // httpClient is shared across all workers so TCP connections are reused.
@@ -50,11 +52,28 @@ func fetch(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 }
 
 // fetchXML downloads and parses an RSS or Atom feed.
+// If the response body looks like CSV rather than XML (i.e. it starts with '#',
+// which is never a valid XML document start but is used as a column-header
+// comment by all C2IntelFeeds files), it falls through to the CSV parser so
+// that feeds added to feeds.txt before a binary rebuild still work correctly.
 func fetchXML(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
-	body, err := httpGet(ctx, cfg.URL, rssBodyLimit)
+	body, err := httpGet(ctx, cfg.URL, rssBodyLimit, fetchTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("fetch %s: %w", cfg.Name, err)
 	}
+
+	// Content-sniff fallback: '#' at the start of a document is never valid XML
+	// but is the standard opening byte of every C2IntelFeeds CSV header row.
+	if bodyLooksLikeCSV(body) {
+		slog.Warn("CSV content detected for non-.csv URL; switching to CSV parser",
+			"feed", cfg.Name, "url", cfg.URL)
+		items, csvErr := ParseCSV(cfg.Name, cfg.URL, body)
+		if csvErr != nil {
+			return nil, fmt.Errorf("parse feed %s (sniffed as CSV): %w", cfg.Name, csvErr)
+		}
+		return items, nil
+	}
+
 	items, err := parseXML(body, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("parse feed %s: %w", cfg.Name, err)
@@ -67,7 +86,7 @@ func fetchXML(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 func fetchCSV(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 	cachePath := filepath.Join(csvCacheDir, csvFilename(cfg.URL))
 
-	body, err := httpGet(ctx, cfg.URL, csvBodyLimit)
+	body, err := httpGet(ctx, cfg.URL, csvBodyLimit, csvFetchTimeout)
 	if err != nil {
 		// Fall back to locally cached copy when the remote is unavailable.
 		cached, cacheErr := os.ReadFile(cachePath)
@@ -91,8 +110,8 @@ func fetchCSV(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 }
 
 // httpGet performs a GET request and returns the response body up to limit bytes.
-func httpGet(ctx context.Context, url string, limit int64) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+func httpGet(ctx context.Context, url string, limit int64, timeout time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -131,4 +150,12 @@ func csvFilename(u string) string {
 		return u[i+1:]
 	}
 	return "feed.csv"
+}
+
+// bodyLooksLikeCSV returns true when the body starts with '#', which is never
+// a valid XML document opener but is the column-header comment marker used by
+// every C2IntelFeeds CSV file.
+func bodyLooksLikeCSV(b []byte) bool {
+	trimmed := bytes.TrimSpace(b)
+	return len(trimmed) > 0 && trimmed[0] == '#'
 }
