@@ -41,4 +41,12 @@ var DefaultFeeds = []FeedConfig{
 	{Name: "Snyk Security", URL: "https://snyk.io/blog/feed/"},
 	{Name: "Industrial Cyber", URL: "https://industrialcyber.co/feed/"},
 	{Name: "Didier Stevens Blog", URL: "https://blog.didierstevens.com/feed/"},
+	// C2 indicator feeds (CSV)
+	{Name: "C2 DNS Domains", URL: "https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/DNSC2Domains.csv"},
+	{Name: "C2 IPs", URL: "https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/IPC2s.csv"},
+	{Name: "C2 IP:Port", URL: "https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/IPPortC2s.csv"},
+	{Name: "C2 Domains", URL: "https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/domainC2s.csv"},
+	{Name: "C2 Domains (URL filtered)", URL: "https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/domainC2swithURL-filter-abused.csv"},
+	{Name: "C2 Domains with URL", URL: "https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/domainC2swithURL.csv"},
+	{Name: "C2 Domains with URL+IP", URL: "https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/domainC2swithURLwithIP.csv"},
 }

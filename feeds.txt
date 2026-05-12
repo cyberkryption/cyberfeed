@@ -14,3 +14,12 @@ TrustedSec                       | https://www.trustedsec.com/feed.rss
 Snyk Security                    | https://snyk.io/blog/feed/
 Industrial Cyber                 | https://industrialcyber.co/feed/
 Didier Stevens Blog              | https://blog.didierstevens.com/feed/
+
+# C2 Indicator Feeds (drb-ra/C2IntelFeeds — CSV, refreshed each cycle)
+C2 DNS Domains                   | https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/DNSC2Domains.csv
+C2 IPs                           | https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/IPC2s.csv
+C2 IP:Port                       | https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/IPPortC2s.csv
+C2 Domains                       | https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/domainC2s.csv
+C2 Domains (URL filtered)        | https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/domainC2swithURL-filter-abused.csv
+C2 Domains with URL              | https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/domainC2swithURL.csv
+C2 Domains with URL+IP           | https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/domainC2swithURLwithIP.csv
