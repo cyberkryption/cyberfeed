@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Group, Text, Switch, useMantineColorScheme,
   useComputedColorScheme, Badge, Tooltip, ActionIcon, Box
@@ -24,6 +24,7 @@ export function Header({
   const computedColorScheme = useComputedColorScheme('dark')
   const isDark = computedColorScheme === 'dark'
 
+  // ── Countdown ────────────────────────────────────────────────────────────
   const [now, setNow] = useState(() => Date.now())
   useInterval(() => setNow(Date.now()), 1000)
 
@@ -41,6 +42,40 @@ export function Header({
     const s = remaining % 60
     return `NEXT REFRESH ${m}:${s.toString().padStart(2, '0')}`
   })()
+
+  // ── Refresh progress bar ─────────────────────────────────────────────────
+  // Simulates progress: crawls to ~85 % while loading, snaps to 100 % on done.
+  const [barPct, setBarPct] = useState(0)
+  const [barVisible, setBarVisible] = useState(false)
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (loading) {
+      // Reset and start crawl
+      if (tickRef.current) clearInterval(tickRef.current)
+      setBarPct(0)
+      setBarVisible(true)
+      let pct = 0
+      tickRef.current = setInterval(() => {
+        // Decelerate as it approaches 85 % so it never quite reaches it
+        const step = Math.max(0.3, (85 - pct) * 0.06)
+        pct = Math.min(85, pct + step)
+        setBarPct(pct)
+        if (pct >= 85) clearInterval(tickRef.current!)
+      }, 120)
+    } else {
+      // Complete and fade out
+      if (tickRef.current) clearInterval(tickRef.current)
+      if (barVisible) {
+        setBarPct(100)
+        setTimeout(() => {
+          setBarVisible(false)
+          setBarPct(0)
+        }, 500)
+      }
+    }
+    return () => { if (tickRef.current) clearInterval(tickRef.current) }
+  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Box
@@ -99,13 +134,7 @@ export function Header({
 
         {/* Stats + countdown */}
         <Group gap="md" visibleFrom="sm">
-          <Badge
-            variant="light"
-            color="brand"
-            size="sm"
-            ff="monospace"
-            style={{ letterSpacing: '0.05em' }}
-          >
+          <Badge variant="light" color="brand" size="sm" ff="monospace" style={{ letterSpacing: '0.05em' }}>
             {totalItems} ITEMS
           </Badge>
           <Badge
@@ -126,18 +155,76 @@ export function Header({
             <Text
               size="xs"
               ff="monospace"
-              style={{
-                color: isDark ? 'rgba(0,212,124,0.6)' : 'rgba(0,120,70,0.7)',
-                letterSpacing: '0.05em',
-              }}
+              style={{ color: isDark ? 'rgba(0,212,124,0.6)' : 'rgba(0,120,70,0.7)', letterSpacing: '0.05em' }}
             >
               {countdown}
             </Text>
           )}
         </Group>
 
-        {/* Actions */}
+        {/* Actions: progress bar + refresh button + theme toggle */}
         <Group gap="sm" align="center">
+
+          {/* Progress bar — always reserves space; visible only while refreshing */}
+          <Box
+            style={{
+              width: 160,
+              height: 28,
+              borderRadius: 6,
+              overflow: 'hidden',
+              border: barVisible
+                ? `1px solid ${isDark ? 'rgba(0,212,124,0.35)' : 'rgba(0,120,70,0.3)'}`
+                : '1px solid transparent',
+              background: barVisible
+                ? (isDark ? 'rgba(0,212,124,0.08)' : 'rgba(0,168,95,0.07)')
+                : 'transparent',
+              transition: 'border-color 0.2s, background 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 6px',
+              gap: 6,
+            }}
+          >
+            {barVisible && (
+              <>
+                <Box
+                  style={{
+                    flex: 1,
+                    height: 6,
+                    borderRadius: 3,
+                    background: isDark ? 'rgba(0,212,124,0.15)' : 'rgba(0,168,95,0.12)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Box
+                    style={{
+                      height: '100%',
+                      width: `${barPct}%`,
+                      borderRadius: 3,
+                      background: isDark
+                        ? 'linear-gradient(90deg, #00d47c, #00ff9d)'
+                        : 'linear-gradient(90deg, #00a85f, #00d47c)',
+                      transition: barPct === 100 ? 'width 0.3s ease-out' : 'width 0.12s linear',
+                      boxShadow: isDark ? '0 0 6px rgba(0,212,124,0.6)' : '0 0 4px rgba(0,168,95,0.5)',
+                    }}
+                  />
+                </Box>
+                <Text
+                  size="xs"
+                  ff="monospace"
+                  style={{
+                    color: isDark ? 'rgba(0,212,124,0.8)' : 'rgba(0,120,70,0.8)',
+                    minWidth: 32,
+                    textAlign: 'right',
+                    letterSpacing: '0.03em',
+                  }}
+                >
+                  {Math.round(barPct)}%
+                </Text>
+              </>
+            )}
+          </Box>
+
           <Tooltip label="Refresh feeds" position="bottom">
             <ActionIcon
               variant="subtle"
