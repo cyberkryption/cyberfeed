@@ -1,6 +1,6 @@
 import {
   Stack, Text, Badge, Box, Tooltip, ScrollArea,
-  ThemeIcon, Group, Switch, useComputedColorScheme
+  ThemeIcon, Group, Switch, useComputedColorScheme, Divider
 } from '@mantine/core'
 import { IconCircleCheck, IconCircleX, IconExternalLink } from '@tabler/icons-react'
 import type { FeedStatus } from '../types'
@@ -13,10 +13,150 @@ interface SourcesSidebarProps {
   onToggleSource: (name: string) => void
 }
 
+function isCSVSource(s: FeedStatus) {
+  const lower = s.url.toLowerCase().split('?')[0]
+  return lower.endsWith('.csv')
+}
+
+interface SectionProps {
+  label: string
+  sources: FeedStatus[]
+  selectedSource: string | null
+  onSelectSource: (source: string | null) => void
+  disabledSources: Set<string>
+  onToggleSource: (name: string) => void
+  isDark: boolean
+}
+
+function SourceSection({
+  label, sources, selectedSource, onSelectSource, disabledSources, onToggleSource, isDark,
+}: SectionProps) {
+  if (sources.length === 0) return null
+
+  return (
+    <>
+      <Box px="sm" pt="sm" pb={2}>
+        <Text
+          size="xs"
+          fw={700}
+          ff="monospace"
+          style={{
+            letterSpacing: '0.1em',
+            fontSize: 10,
+            color: isDark ? 'rgba(0,212,124,0.5)' : 'rgba(0,120,70,0.55)',
+          }}
+        >
+          {label}
+        </Text>
+      </Box>
+      <Divider
+        mx="sm"
+        mb={2}
+        color={isDark ? 'rgba(0,212,124,0.1)' : 'rgba(0,120,70,0.12)'}
+      />
+      {sources.map((source) => {
+        const isDisabled = disabledSources.has(source.name)
+        const isSelected = selectedSource === source.name
+
+        return (
+          <Box
+            key={source.name}
+            px="sm"
+            py="xs"
+            onClick={() => {
+              if (!isDisabled) onSelectSource(isSelected ? null : source.name)
+            }}
+            style={{
+              cursor: isDisabled ? 'default' : 'pointer',
+              borderRadius: 4,
+              background: isSelected && !isDisabled
+                ? isDark ? 'rgba(0,212,124,0.12)' : 'rgba(0,168,95,0.1)'
+                : 'transparent',
+              transition: 'background 0.15s, opacity 0.2s',
+              opacity: isDisabled ? 0.38 : (source.ok ? 1 : 0.6),
+            }}
+          >
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+              <Group gap="xs" align="flex-start" style={{ flex: 1, minWidth: 0 }}>
+                <ThemeIcon
+                  size="xs"
+                  variant="transparent"
+                  color={source.ok ? 'green' : 'red'}
+                  style={{ marginTop: 2, flexShrink: 0 }}
+                >
+                  {source.ok
+                    ? <IconCircleCheck size={13} />
+                    : <IconCircleX size={13} />
+                  }
+                </ThemeIcon>
+                <Box style={{ minWidth: 0 }}>
+                  <Text
+                    size="xs"
+                    fw={isSelected && !isDisabled ? 600 : 400}
+                    c={isSelected && !isDisabled ? 'brand' : undefined}
+                    style={{
+                      lineHeight: 1.3,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      textDecoration: isDisabled ? 'line-through' : 'none',
+                    }}
+                  >
+                    {source.name}
+                  </Text>
+                  {source.error && !isDisabled && (
+                    <Tooltip label={source.error} multiline w={200} position="right">
+                      <Text size="xs" c="red" style={{ fontSize: 10, cursor: 'help' }}>
+                        fetch error
+                      </Text>
+                    </Tooltip>
+                  )}
+                </Box>
+              </Group>
+
+              <Group gap={6} align="center" style={{ flexShrink: 0 }}>
+                {source.ok && !isDisabled && (
+                  <Badge size="xs" variant="outline" color="brand" radius="sm">
+                    {source.itemCount}
+                  </Badge>
+                )}
+                <Tooltip label="Open feed URL" position="right">
+                  <Box
+                    component="a"
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ color: 'inherit', opacity: 0.4, display: 'flex' }}
+                  >
+                    <IconExternalLink size={10} />
+                  </Box>
+                </Tooltip>
+                <Switch
+                  size="xs"
+                  checked={!isDisabled}
+                  onChange={() => onToggleSource(source.name)}
+                  onClick={(e) => e.stopPropagation()}
+                  color="brand"
+                  aria-label={isDisabled ? `Enable ${source.name}` : `Disable ${source.name}`}
+                  styles={{ track: { cursor: 'pointer' } }}
+                />
+              </Group>
+            </Group>
+          </Box>
+        )
+      })}
+    </>
+  )
+}
+
 export function SourcesSidebar({
   sources, selectedSource, onSelectSource, disabledSources, onToggleSource,
 }: SourcesSidebarProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
+
+  const newsFeeds = sources.filter((s) => !isCSVSource(s))
+  const threatIntelFeeds = sources.filter((s) => isCSVSource(s))
 
   const enabledTotal = sources
     .filter((s) => !disabledSources.has(s.name))
@@ -98,98 +238,25 @@ export function SourcesSidebar({
             </Group>
           </Box>
 
-          {sources.map((source) => {
-            const isDisabled = disabledSources.has(source.name)
-            const isSelected = selectedSource === source.name
+          <SourceSection
+            label="NEWS"
+            sources={newsFeeds}
+            selectedSource={selectedSource}
+            onSelectSource={onSelectSource}
+            disabledSources={disabledSources}
+            onToggleSource={onToggleSource}
+            isDark={isDark}
+          />
 
-            return (
-              <Box
-                key={source.name}
-                px="sm"
-                py="xs"
-                onClick={() => {
-                  if (!isDisabled) onSelectSource(isSelected ? null : source.name)
-                }}
-                style={{
-                  cursor: isDisabled ? 'default' : 'pointer',
-                  borderRadius: 4,
-                  background: isSelected && !isDisabled
-                    ? isDark ? 'rgba(0,212,124,0.12)' : 'rgba(0,168,95,0.1)'
-                    : 'transparent',
-                  transition: 'background 0.15s, opacity 0.2s',
-                  opacity: isDisabled ? 0.38 : (source.ok ? 1 : 0.6),
-                }}
-              >
-                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                  <Group gap="xs" align="flex-start" style={{ flex: 1, minWidth: 0 }}>
-                    <ThemeIcon
-                      size="xs"
-                      variant="transparent"
-                      color={source.ok ? 'green' : 'red'}
-                      style={{ marginTop: 2, flexShrink: 0 }}
-                    >
-                      {source.ok
-                        ? <IconCircleCheck size={13} />
-                        : <IconCircleX size={13} />
-                      }
-                    </ThemeIcon>
-                    <Box style={{ minWidth: 0 }}>
-                      <Text
-                        size="xs"
-                        fw={isSelected && !isDisabled ? 600 : 400}
-                        c={isSelected && !isDisabled ? 'brand' : undefined}
-                        style={{
-                          lineHeight: 1.3,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          textDecoration: isDisabled ? 'line-through' : 'none',
-                        }}
-                      >
-                        {source.name}
-                      </Text>
-                      {source.error && !isDisabled && (
-                        <Tooltip label={source.error} multiline w={200} position="right">
-                          <Text size="xs" c="red" style={{ fontSize: 10, cursor: 'help' }}>
-                            fetch error
-                          </Text>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Group>
-
-                  <Group gap={6} align="center" style={{ flexShrink: 0 }}>
-                    {source.ok && !isDisabled && (
-                      <Badge size="xs" variant="outline" color="brand" radius="sm">
-                        {source.itemCount}
-                      </Badge>
-                    )}
-                    <Tooltip label="Open feed URL" position="right">
-                      <Box
-                        component="a"
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ color: 'inherit', opacity: 0.4, display: 'flex' }}
-                      >
-                        <IconExternalLink size={10} />
-                      </Box>
-                    </Tooltip>
-                    <Switch
-                      size="xs"
-                      checked={!isDisabled}
-                      onChange={() => onToggleSource(source.name)}
-                      onClick={(e) => e.stopPropagation()}
-                      color="brand"
-                      aria-label={isDisabled ? `Enable ${source.name}` : `Disable ${source.name}`}
-                      styles={{ track: { cursor: 'pointer' } }}
-                    />
-                  </Group>
-                </Group>
-              </Box>
-            )
-          })}
+          <SourceSection
+            label="THREAT INTEL"
+            sources={threatIntelFeeds}
+            selectedSource={selectedSource}
+            onSelectSource={onSelectSource}
+            disabledSources={disabledSources}
+            onToggleSource={onToggleSource}
+            isDark={isDark}
+          />
         </Stack>
       </ScrollArea>
     </Box>
