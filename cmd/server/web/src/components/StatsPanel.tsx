@@ -45,23 +45,33 @@ export default function StatsPanel({
   )
 
   const cveDailyData = useMemo(() => {
-    const buckets: Record<string, number> = {}
+    type Bucket = { high: number; critical: number; unknown: number }
+    const buckets: Record<string, Bucket> = {}
     const now = new Date()
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now)
       d.setDate(now.getDate() - i)
       const key = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-      buckets[key] = 0
+      buckets[key] = { high: 0, critical: 0, unknown: 0 }
     }
     for (const item of cveItems) {
       const pub = new Date(item.published)
       const ageMs = now.getTime() - pub.getTime()
       if (ageMs >= 0 && ageMs <= 7 * 24 * 60 * 60 * 1000) {
         const key = pub.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-        if (key in buckets) buckets[key]++
+        if (!(key in buckets)) continue
+        const text = `${item.title ?? ''} ${item.description ?? ''}`
+        const match = text.match(CVSS_RE)
+        if (!match) {
+          buckets[key].unknown++
+        } else if (parseFloat(match[1]) >= 9.0) {
+          buckets[key].critical++
+        } else {
+          buckets[key].high++
+        }
       }
     }
-    return Object.entries(buckets).map(([date, cves]) => ({ date, cves }))
+    return Object.entries(buckets).map(([date, b]) => ({ date, ...b }))
   }, [cveItems])
 
   const cvssData = useMemo(() => {
@@ -147,11 +157,16 @@ export default function StatsPanel({
     'cve-daily': (
       <ChartCard id="cve-daily" title="CVE DAILY VOLUME — LAST 7 DAYS" isDark={isDark}>
         <BarChart
-          h={140}
+          h={160}
           data={cveDailyData}
           dataKey="date"
-          series={[{ name: 'cves', color: 'brand.5', label: 'CVEs' }]}
-          withTooltip withXAxis withYAxis gridAxis="y" tickLine="none"
+          type="stacked"
+          series={[
+            { name: 'critical', color: 'red.6',    label: 'Critical (≥9.0)' },
+            { name: 'high',     color: 'orange.5', label: 'High (7.0–8.9)' },
+            { name: 'unknown',  color: 'gray.5',   label: 'Unknown score' },
+          ]}
+          withTooltip withLegend withXAxis withYAxis gridAxis="y" tickLine="none"
           xAxisProps={{ tick: { fontSize: 10, fill: tickColor } }}
           yAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
         />
