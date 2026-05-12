@@ -9,6 +9,7 @@ import { Header } from './components/Header'
 import { SourcesSidebar } from './components/SourcesSidebar'
 import { FeedCard } from './components/FeedCard'
 import { Toolbar } from './components/Toolbar'
+import { TickerBar } from './components/TickerBar'
 import { useFeeds } from './hooks/useFeeds'
 import type { FeedItem } from './types'
 
@@ -110,6 +111,10 @@ export default function App() {
         totalItems={data?.items.length ?? 0}
         activeSources={activeSources}
         serverUpdatedAt={data?.updatedAt ?? null}
+      />
+
+      <TickerBar
+        items={(data?.items ?? []).filter((i) => i.source === 'CVE High and Critical')}
       />
 
       {/* Body row: sidebar | resizable(feed + stats) */}
