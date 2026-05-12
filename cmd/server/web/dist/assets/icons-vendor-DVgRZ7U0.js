@@ -1,4 +1,4 @@
-import{r as a}from"./mantine-vendor-DIwys5Nd.js";/**
+import{r as a}from"./mantine-vendor-B1YGYLV4.js";/**
  * @license @tabler/icons-react v3.44.0 - MIT
  *
  * This source code is licensed under the MIT license.
@@ -73,4 +73,4 @@ import{r as a}from"./mantine-vendor-DIwys5Nd.js";/**
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */const S=[["path",{d:"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0",key:"svg-0"}],["path",{d:"M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2",key:"svg-1"}]],H=e("outline","user","User",S);export{D as I,X as a,F as b,W as c,T as d,j as e,U as f,L as g,H as h,G as i,q as j,R as k,B as l};
+ */const S=[["path",{d:"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0",key:"svg-0"}],["path",{d:"M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2",key:"svg-1"}]],H=e("outline","user","User",S);export{D as I,X as a,W as b,F as c,T as d,j as e,U as f,L as g,H as h,G as i,q as j,R as k,B as l};

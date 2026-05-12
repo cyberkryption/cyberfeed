@@ -1,8 +1,12 @@
+import { useState } from 'react'
 import {
-  Group, Text, ActionIcon, useMantineColorScheme,
-  useComputedColorScheme, Badge, Tooltip, Box
+  Group, Text, Switch, useMantineColorScheme,
+  useComputedColorScheme, Badge, Tooltip, ActionIcon, Box
 } from '@mantine/core'
+import { useInterval } from '@mantine/hooks'
 import { IconSun, IconMoon, IconRefresh, IconShieldCheck } from '@tabler/icons-react'
+
+const REFRESH_INTERVAL_S = 20 * 60
 
 interface HeaderProps {
   onRefresh: () => void
@@ -10,18 +14,33 @@ interface HeaderProps {
   lastRefreshed: Date | null
   totalItems: number
   activeSources: number
+  serverUpdatedAt: string | null
 }
 
-export function Header({ onRefresh, loading, lastRefreshed, totalItems, activeSources }: HeaderProps) {
+export function Header({
+  onRefresh, loading, lastRefreshed, totalItems, activeSources, serverUpdatedAt
+}: HeaderProps) {
   const { setColorScheme } = useMantineColorScheme()
   const computedColorScheme = useComputedColorScheme('dark')
-
   const isDark = computedColorScheme === 'dark'
+
+  const [now, setNow] = useState(() => Date.now())
+  useInterval(() => setNow(Date.now()), 1000)
 
   const fmtTime = (d: Date | null) => {
     if (!d) return 'never'
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
+
+  const countdown = (() => {
+    if (!serverUpdatedAt) return null
+    const elapsed = Math.floor((now - new Date(serverUpdatedAt).getTime()) / 1000)
+    const remaining = REFRESH_INTERVAL_S - elapsed
+    if (remaining <= 0) return 'REFRESHING…'
+    const m = Math.floor(remaining / 60)
+    const s = remaining % 60
+    return `NEXT REFRESH ${m}:${s.toString().padStart(2, '0')}`
+  })()
 
   return (
     <Box
@@ -78,7 +97,7 @@ export function Header({ onRefresh, loading, lastRefreshed, totalItems, activeSo
           </Box>
         </Group>
 
-        {/* Stats */}
+        {/* Stats + countdown */}
         <Group gap="md" visibleFrom="sm">
           <Badge
             variant="light"
@@ -103,10 +122,22 @@ export function Header({ onRefresh, loading, lastRefreshed, totalItems, activeSo
               REFRESHED {fmtTime(lastRefreshed)}
             </Text>
           )}
+          {countdown && (
+            <Text
+              size="xs"
+              ff="monospace"
+              style={{
+                color: isDark ? 'rgba(0,212,124,0.6)' : 'rgba(0,120,70,0.7)',
+                letterSpacing: '0.05em',
+              }}
+            >
+              {countdown}
+            </Text>
+          )}
         </Group>
 
         {/* Actions */}
-        <Group gap="xs">
+        <Group gap="sm" align="center">
           <Tooltip label="Refresh feeds" position="bottom">
             <ActionIcon
               variant="subtle"
@@ -119,16 +150,23 @@ export function Header({ onRefresh, loading, lastRefreshed, totalItems, activeSo
               <IconRefresh size={18} />
             </ActionIcon>
           </Tooltip>
+
           <Tooltip label={isDark ? 'Switch to light mode' : 'Switch to dark mode'} position="bottom">
-            <ActionIcon
-              variant="subtle"
-              color={isDark ? 'yellow' : 'dark'}
-              size="lg"
-              onClick={() => setColorScheme(isDark ? 'light' : 'dark')}
+            <Switch
+              checked={!isDark}
+              onChange={() => setColorScheme(isDark ? 'light' : 'dark')}
+              size="md"
+              onLabel={<IconSun size={13} color="#f59f00" />}
+              offLabel={<IconMoon size={13} color="#74c0fc" />}
               aria-label="Toggle color scheme"
-            >
-              {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
-            </ActionIcon>
+              styles={{
+                track: {
+                  cursor: 'pointer',
+                  backgroundColor: isDark ? 'rgba(0,212,124,0.15)' : undefined,
+                  borderColor: isDark ? 'rgba(0,212,124,0.3)' : undefined,
+                },
+              }}
+            />
           </Tooltip>
         </Group>
       </Group>
