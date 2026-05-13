@@ -208,20 +208,27 @@ export default function StatsPanel({
         </Box>
       </ChartCard>
     ),
-    'cve-categories': topCategoriesData.length > 0 ? (
+    'cve-categories': (
       <ChartCard id="cve-categories" title="TOP AFFECTED PRODUCTS & CATEGORIES" isDark={isDark}>
-        <BarChart
-          h={topCategoriesData.length * 26 + 16}
-          data={topCategoriesData}
-          dataKey="category"
-          series={[{ name: 'count', color: 'red.6', label: 'CVEs' }]}
-          orientation="horizontal"
-          withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
-          yAxisProps={{ width: 140, tick: { fontSize: 10, fill: tickColor } }}
-          xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
-        />
+        {topCategoriesData.length > 0 ? (
+          <BarChart
+            h={topCategoriesData.length * 26 + 16}
+            data={topCategoriesData}
+            dataKey="category"
+            series={[{ name: 'count', color: 'red.6', label: 'CVEs' }]}
+            orientation="horizontal"
+            withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
+            yAxisProps={{ width: 140, tick: { fontSize: 10, fill: tickColor } }}
+            xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
+          />
+        ) : (
+          <Text size="xs" c="dimmed" ff="monospace" ta="center" py="lg"
+            style={{ letterSpacing: '0.06em' }}>
+            NO CATEGORY DATA IN CURRENT FEED
+          </Text>
+        )}
       </ChartCard>
-    ) : null,
+    ),
     'articles-source': (
       <ChartCard id="articles-source" title="ARTICLES PER SOURCE" isDark={isDark}>
         <BarChart
