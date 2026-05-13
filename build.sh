@@ -71,7 +71,7 @@ fi
 echo ""
 echo "==> Building Go binary..."
 cd "$ROOT"
-go build -o cyberfeed ./cmd/server
+CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o cyberfeed ./cmd/server
 
 echo ""
 echo "✓ Done. Run: ./cyberfeed"
