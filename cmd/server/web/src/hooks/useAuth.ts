@@ -15,10 +15,10 @@ export function useAuth() {
 
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => r.json())
       .then((data) =>
         setState({
-          authenticated: !!data?.username,
+          authenticated: !!data?.authenticated,
           username: data?.username ?? null,
           loading: false,
         })

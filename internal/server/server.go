@@ -46,11 +46,12 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 		mux: http.NewServeMux(),
 	}
 
-	// Auth endpoints — login and logout are unprotected so stale/expired sessions
-	// can always be cleared; me requires a valid session.
+	// Auth endpoints — all three are unprotected at the transport level.
+	// login/logout manage their own cookie; me returns 200 with authenticated:false
+	// when no session exists so browsers never log a 401 on the initial auth check.
 	s.mux.Handle("POST /api/auth/login", apiMiddleware(http.HandlerFunc(s.handleLogin)))
 	s.mux.Handle("POST /api/auth/logout", apiMiddleware(http.HandlerFunc(s.handleLogout)))
-	s.mux.Handle("GET /api/auth/me", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleMe))))
+	s.mux.Handle("GET /api/auth/me", apiMiddleware(http.HandlerFunc(s.handleMe)))
 
 	// Data endpoints — all require a valid session.
 	s.mux.Handle("GET /api/feeds", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleFeeds))))
@@ -130,8 +131,29 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
-	username, _ := r.Context().Value(usernameCtxKey).(string)
-	writeJSON(w, http.StatusOK, map[string]string{"username": username})
+	type meResponse struct {
+		Authenticated bool   `json:"authenticated"`
+		Username      string `json:"username,omitempty"`
+	}
+	cookie, err := r.Cookie(auth.CookieName)
+	if err != nil {
+		writeJSON(w, http.StatusOK, meResponse{})
+		return
+	}
+	username, err := auth.ValidateSession(s.db, cookie.Value)
+	if err != nil {
+		// Clear the stale cookie quietly — no 401 logged in the browser.
+		http.SetCookie(w, &http.Cookie{
+			Name:     auth.CookieName,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			MaxAge:   -1,
+		})
+		writeJSON(w, http.StatusOK, meResponse{})
+		return
+	}
+	writeJSON(w, http.StatusOK, meResponse{Authenticated: true, Username: username})
 }
 
 // ── Feed handlers ─────────────────────────────────────────────────────────────
