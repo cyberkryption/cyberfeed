@@ -105,16 +105,25 @@ export default function StatsPanel({
   }, [cveItems])
 
   const topCategoriesData = useMemo(() => {
+    // Strip generic CVE-feed noise terms that don't represent a specific product
+    // or vendor so the chart surfaces meaningful product/platform names.
+    const NOISE = new Set([
+      'cve', 'vulnerability', 'vulnerabilities', 'security', 'advisory',
+      'patch', 'update', 'exploit', 'risk', 'threat', 'alert', 'general',
+      'n/a', 'other', 'unknown',
+    ])
     const counts: Record<string, number> = {}
     for (const item of cveItems) {
       for (const cat of (item.categories ?? [])) {
         const key = cat.trim()
-        if (key) counts[key] = (counts[key] ?? 0) + 1
+        if (key && !NOISE.has(key.toLowerCase())) {
+          counts[key] = (counts[key] ?? 0) + 1
+        }
       }
     }
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
+      .slice(0, 10)
       .map(([category, count]) => ({ category, count }))
   }, [cveItems])
 
@@ -200,15 +209,15 @@ export default function StatsPanel({
       </ChartCard>
     ),
     'cve-categories': topCategoriesData.length > 0 ? (
-      <ChartCard id="cve-categories" title="TOP AFFECTED CATEGORIES" isDark={isDark}>
+      <ChartCard id="cve-categories" title="TOP AFFECTED PRODUCTS & CATEGORIES" isDark={isDark}>
         <BarChart
           h={topCategoriesData.length * 26 + 16}
           data={topCategoriesData}
           dataKey="category"
-          series={[{ name: 'count', color: 'brand.5', label: 'CVEs' }]}
+          series={[{ name: 'count', color: 'red.6', label: 'CVEs' }]}
           orientation="horizontal"
           withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
-          yAxisProps={{ width: 130, tick: { fontSize: 10, fill: tickColor } }}
+          yAxisProps={{ width: 140, tick: { fontSize: 10, fill: tickColor } }}
           xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
         />
       </ChartCard>
