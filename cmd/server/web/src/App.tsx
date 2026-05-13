@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, lazy, Suspense, useRef } from 'react'
+import { useState, useMemo, useCallback, lazy, Suspense, useRef, useEffect } from 'react'
 import {
   Box, Stack, Text, Center, Loader, Alert,
   Group, useComputedColorScheme
@@ -7,11 +7,13 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import { Header } from './components/Header'
+import { LoginPage } from './components/LoginPage'
 import { SourcesSidebar } from './components/SourcesSidebar'
 import { FeedCard } from './components/FeedCard'
 import { Toolbar } from './components/Toolbar'
 import { TickerBar } from './components/TickerBar'
 import { useFeeds } from './hooks/useFeeds'
+import { useAuth } from './hooks/useAuth'
 import { useReadItems } from './hooks/useReadItems'
 import { ALL_CHARTS } from './charts'
 import type { FeedItem } from './types'
@@ -55,8 +57,27 @@ function ResizeHandle({ isDark }: { isDark: boolean }) {
 }
 
 export default function App() {
+  const auth = useAuth()
   const { data, loading, error, refresh, lastRefreshed } = useFeeds()
   const { readItems, markRead, toggleRead, clearAll } = useReadItems()
+
+  useEffect(() => {
+    if (error === 'HTTP 401') {
+      auth.logout()
+    }
+  }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (auth.loading) {
+    return (
+      <Center h="100vh">
+        <Loader size="lg" color="brand" type="dots" />
+      </Center>
+    )
+  }
+
+  if (!auth.authenticated) {
+    return <LoginPage onLogin={auth.login} />
+  }
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [disabledSources, setDisabledSources] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
@@ -169,6 +190,8 @@ export default function App() {
         serverUpdatedAt={data?.updatedAt ?? null}
         tickerSpeed={tickerSpeed}
         onTickerSpeedChange={setTickerSpeed}
+        username={auth.username}
+        onLogout={auth.logout}
       />
 
       <TickerBar

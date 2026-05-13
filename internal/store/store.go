@@ -69,6 +69,12 @@ func Open(path string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
+// DB returns the underlying *sql.DB so other packages (e.g. auth) can share
+// the same SQLite connection without opening a second file handle.
+func (s *Store) DB() *sql.DB {
+	return s.db
+}
+
 // Close closes the underlying database connection.
 func (s *Store) Close() error {
 	return s.db.Close()

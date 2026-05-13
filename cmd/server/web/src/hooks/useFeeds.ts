@@ -28,7 +28,8 @@ export function useFeeds(): UseFeedsResult {
     setLoading(true)
     setError(null)
     try {
-      const resp = await fetch('/api/feeds', { signal: controller.signal })
+      const resp = await fetch('/api/feeds', { signal: controller.signal, credentials: 'same-origin' })
+      if (resp.status === 401) throw new Error('HTTP 401')
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       const json: FeedsSnapshot = await resp.json()
       setData(json)
