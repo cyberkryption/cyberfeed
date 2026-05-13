@@ -6,7 +6,7 @@ export default defineConfig({
   // Pre-bundle the entire tabler icons package into one file so Vite does not
   // have to scan and resolve all 12,000+ individual icon files on every build.
   optimizeDeps: {
-    include: ['@tabler/icons-react'],
+    include: ['@tabler/icons-react', '@tanstack/react-virtual'],
   },
   build: {
     outDir: 'dist',

@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback, lazy, Suspense } from 'react'
+import { useState, useMemo, useCallback, lazy, Suspense, useRef } from 'react'
 import {
   Box, Stack, Text, Center, Loader, Alert,
   Group, useComputedColorScheme
 } from '@mantine/core'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import { Header } from './components/Header'
@@ -67,6 +68,8 @@ export default function App() {
   const [tickerSpeed, setTickerSpeed] = useState(100)
   const isDark = useComputedColorScheme('dark') === 'dark'
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   const handleToggleSource = useCallback((name: string) => {
     setDisabledSources((prev) => {
       const next = new Set(prev)
@@ -74,7 +77,6 @@ export default function App() {
       else next.add(name)
       return next
     })
-    // deselect if the toggled source was selected
     setSelectedSource((sel) => (sel === name ? null : sel))
   }, [])
 
@@ -123,6 +125,14 @@ export default function App() {
 
     return items
   }, [data, selectedSource, disabledSources, search, sortBy])
+
+  const virtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 148,
+    overscan: 5,
+    measureElement: (el) => el.getBoundingClientRect().height,
+  })
 
   const activeSources = data?.sources.filter((s) => s.ok).length ?? 0
 
@@ -190,7 +200,7 @@ export default function App() {
               />
             )}
 
-            <Box style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+            <Box ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
               {error && !data && (
                 <Alert
                   icon={<IconAlertTriangle size={16} />}
@@ -218,26 +228,43 @@ export default function App() {
                 </Center>
               )}
 
-              {data && (
-                <>
-                  {filtered.length === 0 ? (
-                    <Center h={200}>
-                      <Text c="dimmed" ff="monospace" size="sm">
-                        {search ? 'NO RESULTS FOUND' : 'NO ITEMS TO DISPLAY'}
-                      </Text>
-                    </Center>
-                  ) : (
-                    <Stack gap="sm" maw={900}>
-                      {filtered.map((item, idx) => (
-                        <FeedCard
-                          key={`${item.source}-${item.link}-${idx}`}
-                          item={item}
-                          searchQuery={search}
-                        />
-                      ))}
-                    </Stack>
-                  )}
-                </>
+              {data && filtered.length === 0 && (
+                <Center h={200}>
+                  <Text c="dimmed" ff="monospace" size="sm">
+                    {search ? 'NO RESULTS FOUND' : 'NO ITEMS TO DISPLAY'}
+                  </Text>
+                </Center>
+              )}
+
+              {data && filtered.length > 0 && (
+                <Box
+                  style={{
+                    height: virtualizer.getTotalSize(),
+                    position: 'relative',
+                    maxWidth: 900,
+                  }}
+                >
+                  {virtualizer.getVirtualItems().map((vRow) => (
+                    <Box
+                      key={vRow.index}
+                      data-index={vRow.index}
+                      ref={virtualizer.measureElement}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${vRow.start}px)`,
+                        paddingBottom: 8,
+                      }}
+                    >
+                      <FeedCard
+                        item={filtered[vRow.index]}
+                        searchQuery={search}
+                      />
+                    </Box>
+                  ))}
+                </Box>
               )}
 
               {data && (
