@@ -254,12 +254,11 @@ export default function App() {
                 <ResizeHandle isDark={isDark} />
               </PanelResizeHandle>
 
-              <Panel defaultSize={35} minSize={20} maxSize={55} style={{ overflow: 'hidden' }}>
+              <Panel defaultSize={35} minSize={20} maxSize={55} style={{ overflow: 'hidden', position: 'relative' }}>
                 <Box
                   style={{
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
+                    position: 'absolute',
+                    inset: 0,
                     overflowY: 'auto',
                     background: isDark ? 'rgba(13,18,16,0.6)' : 'rgba(238,247,242,0.6)',
                   }}
