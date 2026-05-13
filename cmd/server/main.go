@@ -15,6 +15,7 @@ import (
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
 	"github.com/cyberkryption/cyberfeed/internal/fetcher"
 	"github.com/cyberkryption/cyberfeed/internal/server"
+	"github.com/cyberkryption/cyberfeed/internal/store"
 )
 
 //go:embed web/dist
@@ -39,10 +40,23 @@ func main() {
 		logger.Info("loaded feeds from feeds.txt", "count", len(feeds))
 	}
 
+	dbPath := os.Getenv("CYBERFEED_DB")
+	if dbPath == "" {
+		dbPath = "cyberfeed.db"
+	}
+	st, err := store.Open(dbPath)
+	if err != nil {
+		logger.Warn("could not open store, running without persistence", "path", dbPath, "error", err)
+		st = nil
+	} else {
+		logger.Info("store opened", "path", dbPath)
+		defer st.Close()
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	agg := aggregator.New(feeds, logger)
+	agg := aggregator.New(feeds, logger, st)
 	go agg.StartAutoRefresh(ctx, 20*time.Minute)
 
 	srv, err := server.New(server.Config{

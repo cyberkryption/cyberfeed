@@ -6,5 +6,10 @@ data/
 *.test
 *.out
 
+# SQLite database
+*.db
+*.db-wal
+*.db-shm
+
 # Frontend build (embedded via go:embed — only dist/ in cmd/server/web is kept)
 cmd/server/web/node_modules/
