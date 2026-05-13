@@ -9,16 +9,13 @@ import (
 	"net/http"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
 )
 
 // Config holds server configuration.
 type Config struct {
-	Addr         string
-	Logger       *slog.Logger
-	PasswordHash string // bcrypt hash of the password; empty = no auth
+	Addr   string
+	Logger *slog.Logger
 }
 
 // Server wraps the HTTP server and its dependencies.
@@ -41,15 +38,9 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 	s.mux.Handle("GET /api/health", corsMiddleware(http.HandlerFunc(s.handleHealth)))
 	s.mux.Handle("/", spaHandler(staticFS))
 
-	var handler http.Handler = s.mux
-	if cfg.PasswordHash != "" {
-		handler = basicAuthMiddleware(cfg.PasswordHash, s.mux)
-		cfg.Logger.Info("basic auth enabled")
-	}
-
 	s.http = &http.Server{
 		Addr:         cfg.Addr,
-		Handler:      handler,
+		Handler:      s.mux,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -98,20 +89,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// basicAuthMiddleware requires a valid password (checked against a bcrypt hash)
-// on every request. The username field is ignored — only the password matters.
-func basicAuthMiddleware(hash string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, password, ok := r.BasicAuth()
-		if !ok || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
-			w.Header().Set("WWW-Authenticate", `Basic realm="CyberFeed"`)
-			http.Error(w, "Unauthorised", http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)
