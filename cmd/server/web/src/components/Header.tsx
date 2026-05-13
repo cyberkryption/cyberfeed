@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Group, Text, Switch, useMantineColorScheme,
-  useComputedColorScheme, Badge, Tooltip, ActionIcon, Box
+  useComputedColorScheme, Badge, Tooltip, ActionIcon, Box, Slider
 } from '@mantine/core'
 import { useInterval } from '@mantine/hooks'
 import { IconSun, IconMoon, IconRefresh, IconShieldCheck } from '@tabler/icons-react'
@@ -15,10 +15,13 @@ interface HeaderProps {
   totalItems: number
   activeSources: number
   serverUpdatedAt: string | null
+  tickerSpeed: number
+  onTickerSpeedChange: (v: number) => void
 }
 
 export function Header({
-  onRefresh, loading, lastRefreshed, totalItems, activeSources, serverUpdatedAt
+  onRefresh, loading, lastRefreshed, totalItems, activeSources, serverUpdatedAt,
+  tickerSpeed, onTickerSpeedChange,
 }: HeaderProps) {
   const { setColorScheme } = useMantineColorScheme()
   const computedColorScheme = useComputedColorScheme('dark')
@@ -98,7 +101,7 @@ export function Header({
         align="center"
         px="xl"
         py="sm"
-        style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}
+        style={{ width: '100%' }}
       >
         {/* Logo */}
         <Group gap="sm" align="center">
@@ -124,7 +127,7 @@ export function Header({
                 lineHeight: 1.1,
               }}
             >
-              CYBERFEED
+              CYBERFEED 0.1v
             </Text>
             <Text size="xs" c="dimmed" ff="monospace" style={{ letterSpacing: '0.08em' }}>
               CYBER SECURITY INTELLIGENCE
@@ -160,6 +163,30 @@ export function Header({
               {countdown}
             </Text>
           )}
+
+          {/* Ticker speed slider */}
+          <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Text size="xs" ff="monospace" c="dimmed" style={{ letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+              TICKER
+            </Text>
+            <Tooltip label={`Ticker speed: ${tickerSpeed}%`} position="bottom" withArrow>
+              <Slider
+                value={tickerSpeed}
+                onChange={onTickerSpeedChange}
+                min={50}
+                max={100}
+                step={5}
+                w={80}
+                size="xs"
+                color="brand"
+                label={null}
+                styles={{
+                  thumb: { borderColor: isDark ? '#00d47c' : '#007840', width: 12, height: 12 },
+                  track: { cursor: 'pointer' },
+                }}
+              />
+            </Tooltip>
+          </Box>
         </Group>
 
         {/* Actions: progress bar + refresh button + theme toggle */}

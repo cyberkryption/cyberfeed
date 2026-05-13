@@ -64,6 +64,7 @@ export default function App() {
   const [chartOrder, setChartOrder] = useState<string[]>(
     () => ALL_CHARTS.map((c) => c.id)
   )
+  const [tickerSpeed, setTickerSpeed] = useState(100)
   const isDark = useComputedColorScheme('dark') === 'dark'
 
   const handleToggleSource = useCallback((name: string) => {
@@ -144,12 +145,15 @@ export default function App() {
         totalItems={data?.items.length ?? 0}
         activeSources={activeSources}
         serverUpdatedAt={data?.updatedAt ?? null}
+        tickerSpeed={tickerSpeed}
+        onTickerSpeedChange={setTickerSpeed}
       />
 
       <TickerBar
         items={(data?.items ?? []).filter(
           (i) => i.source === 'CVE High and Critical' && !disabledSources.has(i.source)
         )}
+        tickerSpeed={tickerSpeed}
       />
 
       {/* Body row: sidebar | resizable(feed + stats) */}

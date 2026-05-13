@@ -4,9 +4,10 @@ import type { FeedItem } from '../types'
 
 interface TickerBarProps {
   items: FeedItem[]
+  tickerSpeed: number   // 50–100; 100 = normal, 50 = half speed
 }
 
-export function TickerBar({ items }: TickerBarProps) {
+export function TickerBar({ items, tickerSpeed }: TickerBarProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
 
   if (items.length === 0) return null
@@ -14,8 +15,9 @@ export function TickerBar({ items }: TickerBarProps) {
   // Duplicate so the second copy fills the gap when the first scrolls off.
   const doubled = [...items, ...items]
 
-  // ~9s per item; minimum 60s for short lists.
-  const durationS = Math.max(60, items.length * 9)
+  // ~9s per item; minimum 60s for short lists. Speed < 100 stretches the duration.
+  const baseDurationS = Math.max(60, items.length * 9)
+  const durationS = baseDurationS * (100 / tickerSpeed)
 
   const bg      = isDark ? '#00d47c' : '#00a85f'
   const bgLabel = isDark ? '#00b568' : '#008f50'
