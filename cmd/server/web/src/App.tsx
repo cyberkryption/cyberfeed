@@ -12,6 +12,7 @@ import { FeedCard } from './components/FeedCard'
 import { Toolbar } from './components/Toolbar'
 import { TickerBar } from './components/TickerBar'
 import { useFeeds } from './hooks/useFeeds'
+import { useReadItems } from './hooks/useReadItems'
 import { ALL_CHARTS } from './charts'
 import type { FeedItem } from './types'
 
@@ -55,10 +56,12 @@ function ResizeHandle({ isDark }: { isDark: boolean }) {
 
 export default function App() {
   const { data, loading, error, refresh, lastRefreshed } = useFeeds()
+  const { readItems, markRead, toggleRead, clearAll } = useReadItems()
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [disabledSources, setDisabledSources] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'date' | 'source'>('date')
+  const [hideRead, setHideRead] = useState(false)
   const [visibleCharts, setVisibleCharts] = useState<Set<string>>(
     () => new Set(ALL_CHARTS.map((c) => c.id))
   )
@@ -115,6 +118,10 @@ export default function App() {
       )
     }
 
+    if (hideRead) {
+      items = items.filter((i) => !readItems.has(i.link))
+    }
+
     if (sortBy === 'source') {
       items = [...items].sort((a, b) => {
         const s = a.source.localeCompare(b.source)
@@ -124,7 +131,12 @@ export default function App() {
     }
 
     return items
-  }, [data, selectedSource, disabledSources, search, sortBy])
+  }, [data, selectedSource, disabledSources, search, sortBy, hideRead, readItems])
+
+  const readCount = useMemo(
+    () => (data?.items ?? []).filter((i) => readItems.has(i.link)).length,
+    [data, readItems]
+  )
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -197,6 +209,10 @@ export default function App() {
                 totalCount={data.items.length}
                 visibleCharts={visibleCharts}
                 onToggleChart={handleToggleChart}
+                hideRead={hideRead}
+                onToggleHideRead={() => setHideRead((v) => !v)}
+                readCount={readCount}
+                onClearRead={clearAll}
               />
             )}
 
@@ -231,7 +247,7 @@ export default function App() {
               {data && filtered.length === 0 && (
                 <Center h={200}>
                   <Text c="dimmed" ff="monospace" size="sm">
-                    {search ? 'NO RESULTS FOUND' : 'NO ITEMS TO DISPLAY'}
+                    {search ? 'NO RESULTS FOUND' : hideRead ? 'ALL ITEMS READ' : 'NO ITEMS TO DISPLAY'}
                   </Text>
                 </Center>
               )}
@@ -244,26 +260,32 @@ export default function App() {
                     maxWidth: 900,
                   }}
                 >
-                  {virtualizer.getVirtualItems().map((vRow) => (
-                    <Box
-                      key={vRow.index}
-                      data-index={vRow.index}
-                      ref={virtualizer.measureElement}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        transform: `translateY(${vRow.start}px)`,
-                        paddingBottom: 8,
-                      }}
-                    >
-                      <FeedCard
-                        item={filtered[vRow.index]}
-                        searchQuery={search}
-                      />
-                    </Box>
-                  ))}
+                  {virtualizer.getVirtualItems().map((vRow) => {
+                    const item = filtered[vRow.index]
+                    return (
+                      <Box
+                        key={vRow.index}
+                        data-index={vRow.index}
+                        ref={virtualizer.measureElement}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          transform: `translateY(${vRow.start}px)`,
+                          paddingBottom: 8,
+                        }}
+                      >
+                        <FeedCard
+                          item={item}
+                          searchQuery={search}
+                          isRead={readItems.has(item.link)}
+                          onToggleRead={() => toggleRead(item.link)}
+                          onMarkRead={() => markRead(item.link)}
+                        />
+                      </Box>
+                    )
+                  })}
                 </Box>
               )}
 

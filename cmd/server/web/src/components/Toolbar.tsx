@@ -1,8 +1,8 @@
 import {
   Group, TextInput, SegmentedControl, Text, ActionIcon,
-  Popover, Checkbox, Divider, useComputedColorScheme,
+  Popover, Checkbox, Divider, useComputedColorScheme, Tooltip, Indicator,
 } from '@mantine/core'
-import { IconSearch, IconChartBar } from '@tabler/icons-react'
+import { IconSearch, IconChartBar, IconEyeOff, IconEye } from '@tabler/icons-react'
 import { ALL_CHARTS } from '../charts'
 
 interface ToolbarProps {
@@ -14,11 +14,16 @@ interface ToolbarProps {
   totalCount: number
   visibleCharts: Set<string>
   onToggleChart: (id: string) => void
+  hideRead: boolean
+  onToggleHideRead: () => void
+  readCount: number
+  onClearRead: () => void
 }
 
 export function Toolbar({
   search, onSearchChange, sortBy, onSortChange,
   visibleCount, totalCount, visibleCharts, onToggleChart,
+  hideRead, onToggleHideRead, readCount, onClearRead,
 }: ToolbarProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
   const activeCount = visibleCharts.size
@@ -74,6 +79,65 @@ export function Toolbar({
             label: { fontSize: 11, letterSpacing: '0.06em' },
           }}
         />
+
+        {/* Hide-read toggle */}
+        <Popover width={170} position="bottom-end" withArrow shadow="md" withinPortal>
+          <Popover.Target>
+            <Indicator
+              disabled={readCount === 0}
+              label={readCount > 99 ? '99+' : String(readCount)}
+              size={15}
+              color="gray"
+              styles={{ indicator: { fontSize: 9, fontFamily: 'monospace' } }}
+            >
+              <Tooltip label={hideRead ? 'Show read items' : 'Hide read items'} position="bottom" withArrow>
+                <ActionIcon
+                  variant={hideRead ? 'filled' : 'subtle'}
+                  color="brand"
+                  size="sm"
+                  onClick={onToggleHideRead}
+                  aria-label={hideRead ? 'Show read items' : 'Hide read items'}
+                >
+                  {hideRead ? <IconEyeOff size={15} /> : <IconEye size={15} />}
+                </ActionIcon>
+              </Tooltip>
+            </Indicator>
+          </Popover.Target>
+
+          <Popover.Dropdown p="sm">
+            <Text size="xs" ff="monospace" fw={700} mb="xs"
+              style={{ letterSpacing: '0.1em', color: isDark ? '#00d47c' : '#007840' }}>
+              READ ITEMS
+            </Text>
+            <Text size="xs" c="dimmed" mb="xs">
+              {readCount} item{readCount !== 1 ? 's' : ''} marked as read
+            </Text>
+            <Checkbox
+              label="Hide read items"
+              checked={hideRead}
+              onChange={onToggleHideRead}
+              size="xs"
+              color="brand"
+              mb="xs"
+              styles={{ label: { fontSize: 12 } }}
+            />
+            <Divider my="xs" />
+            <Text
+              size="xs"
+              ff="monospace"
+              style={{
+                cursor: readCount > 0 ? 'pointer' : 'default',
+                color: readCount > 0
+                  ? (isDark ? 'rgba(0,212,124,0.8)' : '#007840')
+                  : 'gray',
+                letterSpacing: '0.06em',
+              }}
+              onClick={readCount > 0 ? onClearRead : undefined}
+            >
+              CLEAR ALL READ
+            </Text>
+          </Popover.Dropdown>
+        </Popover>
 
         <Popover width={210} position="bottom-end" withArrow shadow="md" withinPortal>
           <Popover.Target>
