@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cyberkryption/cyberfeed/internal/fetcher"
+	"github.com/cyberkryption/cyberfeed/internal/store"
 )
 
 // FeedStatus tracks per-source metadata.
@@ -33,16 +34,49 @@ type Snapshot struct {
 type Aggregator struct {
 	feeds    []fetcher.FeedConfig
 	logger   *slog.Logger
+	store    *store.Store
 	mu       sync.RWMutex
 	snapshot Snapshot
 }
 
-// New creates an Aggregator for the given feeds.
-func New(feeds []fetcher.FeedConfig, logger *slog.Logger) *Aggregator {
-	return &Aggregator{
+// New creates an Aggregator for the given feeds. st may be nil to disable persistence.
+func New(feeds []fetcher.FeedConfig, logger *slog.Logger, st *store.Store) *Aggregator {
+	a := &Aggregator{
 		feeds:  feeds,
 		logger: logger,
+		store:  st,
 	}
+	if st != nil {
+		a.loadFromStore()
+	}
+	return a
+}
+
+// loadFromStore populates the in-memory snapshot from the last persisted state.
+func (a *Aggregator) loadFromStore() {
+	items, records, updatedAt, err := a.store.LoadSnapshot()
+	if err != nil {
+		a.logger.Warn("failed to load snapshot from store", "error", err)
+		return
+	}
+	if len(items) == 0 {
+		return
+	}
+	statuses := make([]FeedStatus, len(records))
+	for i, r := range records {
+		statuses[i] = FeedStatus{
+			Name:      r.Name,
+			URL:       r.URL,
+			ItemCount: r.ItemCount,
+			LastFetch: r.LastFetch,
+			Error:     r.Error,
+			OK:        r.OK,
+		}
+	}
+	a.mu.Lock()
+	a.snapshot = Snapshot{Items: items, Sources: statuses, UpdatedAt: updatedAt}
+	a.mu.Unlock()
+	a.logger.Info("loaded snapshot from store", "items", len(items), "sources", len(records))
 }
 
 // Snapshot returns a read-only copy of the current aggregated data.
@@ -136,13 +170,34 @@ func (a *Aggregator) Refresh(ctx context.Context) error {
 		return statuses[i].Name < statuses[j].Name
 	})
 
+	updatedAt := time.Now().UTC()
+
 	a.mu.Lock()
 	a.snapshot = Snapshot{
 		Items:     allItems,
 		Sources:   statuses,
-		UpdatedAt: time.Now().UTC(),
+		UpdatedAt: updatedAt,
 	}
 	a.mu.Unlock()
+
+	if a.store != nil {
+		records := make([]store.SourceRecord, len(statuses))
+		for i, s := range statuses {
+			records[i] = store.SourceRecord{
+				Name:      s.Name,
+				URL:       s.URL,
+				ItemCount: s.ItemCount,
+				LastFetch: s.LastFetch,
+				Error:     s.Error,
+				OK:        s.OK,
+			}
+		}
+		if err := a.store.SaveSnapshot(allItems, records, updatedAt); err != nil {
+			a.logger.Warn("failed to persist snapshot", "error", err)
+		} else {
+			a.logger.Info("snapshot persisted to store", "items", len(allItems))
+		}
+	}
 
 	return nil
 }
