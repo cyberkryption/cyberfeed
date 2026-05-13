@@ -79,7 +79,8 @@ cmd/server/
     │   │   ├── FeedCard.tsx       — Individual feed item card
     │   │   └── StatsPanel.tsx     — All six charts with drag-to-reorder
     │   └── hooks/
-    │       └── useFeeds.ts  — Auto-polling /api/feeds every 20 minutes
+    │       ├── useFeeds.ts      — Auto-polling /api/feeds every 20 minutes
+    │       └── useReadItems.ts  — Read/unread state persisted to localStorage
     └── dist/                — Built output, embedded via //go:embed
 
 internal/
@@ -89,6 +90,8 @@ internal/
 │   └── parser.go            — RSS 2.0 + Atom + CSV parser; bluemonday sanitisation
 ├── aggregator/
 │   └── aggregator.go        — Spawns workers, collects results, caches snapshot
+├── store/
+│   └── store.go             — SQLite persistence; SaveSnapshot / LoadSnapshot
 └── server/
     └── server.go            — HTTP server; /api/feeds, /api/health, SPA fallback
 ```
@@ -152,6 +155,112 @@ CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o cyberfeed ./cmd/server
 ```
 
 Then open **http://localhost:8888**
+
+## Persistence (SQLite)
+
+Feed snapshots are automatically saved to a SQLite database after every refresh and loaded on startup — so data is served immediately on restart with no 15-second cold-fetch wait.
+
+No installation is required. The driver (`modernc.org/sqlite`) is pure Go and bundled inside the binary.
+
+### Database files
+
+| File | Purpose |
+|------|---------|
+| `cyberfeed.db` | Main database |
+| `cyberfeed.db-wal` | Write-ahead log — auto-managed, disappears on clean shutdown |
+| `cyberfeed.db-shm` | Shared memory for WAL — auto-managed |
+
+Back up only `cyberfeed.db`. The WAL files are transient.
+
+### Linux / macOS
+
+```bash
+# Default — creates cyberfeed.db in the current directory
+./cyberfeed
+
+# Custom path
+CYBERFEED_DB=/var/lib/cyberfeed/feeds.db ./cyberfeed
+
+# Persist to a fixed home directory location
+mkdir -p ~/.local/share/cyberfeed
+CYBERFEED_DB=~/.local/share/cyberfeed/feeds.db ./cyberfeed
+
+# Inspect the database (requires sqlite3 CLI: sudo apt install sqlite3 / brew install sqlite3)
+sqlite3 cyberfeed.db "SELECT count(*) FROM feed_items;"
+sqlite3 cyberfeed.db "SELECT name, ok, error FROM feed_sources;"
+sqlite3 cyberfeed.db "SELECT value FROM meta WHERE key='updated_at';"
+
+# Reset — delete all three files to start fresh
+rm cyberfeed.db cyberfeed.db-wal cyberfeed.db-shm
+```
+
+### Windows
+
+```powershell
+# Default — creates cyberfeed.db in the current directory
+.\cyberfeed.exe
+
+# Custom path (current session)
+$env:CYBERFEED_DB = "C:\ProgramData\cyberfeed\feeds.db"
+.\cyberfeed.exe
+
+# Persist to AppData (add to your profile or a launch script)
+New-Item -ItemType Directory -Force -Path "$env:APPDATA\cyberfeed" | Out-Null
+$env:CYBERFEED_DB = "$env:APPDATA\cyberfeed\feeds.db"
+.\cyberfeed.exe
+
+# Inspect the database (sqlite3.exe from sqlite.org/download.html)
+sqlite3 cyberfeed.db "SELECT count(*) FROM feed_items;"
+sqlite3 cyberfeed.db "SELECT name, ok, error FROM feed_sources;"
+
+# Reset
+Remove-Item cyberfeed.db, cyberfeed.db-wal, cyberfeed.db-shm -ErrorAction SilentlyContinue
+```
+
+If the database cannot be opened (e.g. permissions), the server logs a warning and continues in memory-only mode — it will not crash.
+
+## Authentication
+
+By default CyberFeed is open with no login required (suitable for local use). To enable password protection, set `CYBERFEED_PASSWORD_HASH` to a bcrypt hash of your chosen password before starting the server.
+
+### Generate a password hash
+
+**Linux / macOS** (requires `htpasswd` from `apache2-utils` / `httpd-tools`, or use `python3`):
+
+```bash
+# Using htpasswd (recommended)
+htpasswd -bnBC 12 "" yourpassword | tr -d ':\n'
+
+# Using Python if htpasswd is not available
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(rounds=12)).decode())"
+```
+
+**Windows** (PowerShell):
+
+```powershell
+# Using Python
+python -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(rounds=12)).decode())"
+```
+
+### Start the server with auth enabled
+
+**Linux / macOS:**
+
+```bash
+export CYBERFEED_PASSWORD_HASH='$2y$12$...'   # paste hash from above
+./cyberfeed
+```
+
+**Windows (PowerShell):**
+
+```powershell
+$env:CYBERFEED_PASSWORD_HASH = '$2y$12$...'   # paste hash from above
+.\cyberfeed.exe
+```
+
+When auth is enabled, the browser will prompt for credentials on first visit. The **username field is ignored** — enter anything. Only the password is checked.
+
+> **Note:** If `CYBERFEED_PASSWORD_HASH` is not set, the server starts without any authentication. This is intentional so existing deployments are not broken by the upgrade.
 
 ## API
 
