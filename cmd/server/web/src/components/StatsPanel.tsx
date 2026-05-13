@@ -150,17 +150,20 @@ export default function StatsPanel({
   }, [data.items])
 
   const healthData = useMemo(() => {
-    function buildSegments(sources: typeof data.sources) {
+    function buildSegments(sources: typeof data.sources, healthyColor: string) {
       const ok  = sources.filter((s) => s.ok).length
       const err = sources.filter((s) => !s.ok).length
       const segments = []
-      if (ok  > 0) segments.push({ name: 'Healthy', value: ok,  color: 'brand.5' })
-      if (err > 0) segments.push({ name: 'Error',   value: err, color: 'red.6'   })
+      if (ok  > 0) segments.push({ name: 'Healthy', value: ok,  color: healthyColor })
+      if (err > 0) segments.push({ name: 'Error',   value: err, color: 'red.6'      })
       return segments
     }
-    const news = data.sources.filter((s) => isNewsUrl(s.url))
+    const news = data.sources.filter((s) =>  isNewsUrl(s.url))
     const c2   = data.sources.filter((s) => !isNewsUrl(s.url))
-    return { news: buildSegments(news), c2: buildSegments(c2) }
+    return {
+      news: buildSegments(news, 'brand.5'),
+      c2:   buildSegments(c2,   'orange.5'),
+    }
   }, [data.sources])
 
   // ── Chart content map ───────────────────────────────────────────────────────
