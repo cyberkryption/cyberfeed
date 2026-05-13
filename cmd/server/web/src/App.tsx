@@ -85,8 +85,18 @@ export default function App() {
           />
         )}
 
-        {/* Feed list */}
-        <Box style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Feed column — fixed reading width so charts can fill the rest */}
+        <Box
+          style={{
+            flexBasis: 820,
+            flexShrink: 1,
+            flexGrow: 0,
+            minWidth: 380,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
           {data && (
             <Toolbar
               search={search}
@@ -137,7 +147,7 @@ export default function App() {
                     </Text>
                   </Center>
                 ) : (
-                  <Stack gap="sm" maw={900}>
+                  <Stack gap="sm">
                     {filtered.map((item, idx) => (
                       <FeedCard
                         key={`${item.source}-${item.link}-${idx}`}
@@ -161,12 +171,12 @@ export default function App() {
           </Box>
         </Box>
 
-        {/* Right stats panel — 460px gives charts enough room to render cleanly */}
+        {/* Charts panel — flex:1 fills all remaining space */}
         {data && showStats && (
           <Box
             style={{
-              width: 460,
-              flexShrink: 0,
+              flex: 1,
+              minWidth: 400,
               display: 'flex',
               flexDirection: 'column',
               overflowY: 'auto',

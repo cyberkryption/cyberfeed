@@ -47,10 +47,10 @@ export default function StatsPanel({ data }: StatsPanelProps) {
   }, [data.sources])
 
   return (
-    <Stack gap="md" p="md">
+    <Stack gap="lg" p="lg">
       <ChartCard title="ARTICLES PER SOURCE">
         <BarChart
-          h={sourceBarData.length * 30 + 20}
+          h={sourceBarData.length * 32 + 20}
           data={sourceBarData}
           dataKey="source"
           series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
@@ -60,37 +60,38 @@ export default function StatsPanel({ data }: StatsPanelProps) {
           withTooltip
           gridAxis="x"
           tickLine="none"
-          yAxisProps={{ width: 150, tick: { fontSize: 11 } }}
-          xAxisProps={{ tick: { fontSize: 11 } }}
+          yAxisProps={{ width: 160, tick: { fontSize: 12 } }}
+          xAxisProps={{ tick: { fontSize: 12 } }}
         />
       </ChartCard>
 
       <ChartCard title="ARTICLES — LAST 14 DAYS">
         <AreaChart
-          h={200}
+          h={240}
           data={timelineData}
           dataKey="date"
           series={[{ name: 'articles', color: 'brand.5', label: 'Articles' }]}
           curveType="monotone"
-          withDots={false}
+          withDots
+          dotProps={{ r: 3 }}
           fillOpacity={0.15}
           withTooltip
           gridAxis="y"
           tickLine="none"
-          xAxisProps={{ tick: { fontSize: 11 }, interval: 2 }}
-          yAxisProps={{ tick: { fontSize: 11 } }}
+          xAxisProps={{ tick: { fontSize: 12 }, interval: 1 }}
+          yAxisProps={{ tick: { fontSize: 12 } }}
         />
       </ChartCard>
 
       <ChartCard title="SOURCE HEALTH">
         <DonutChart
           data={healthData}
-          h={220}
+          h={260}
           withLabelsLine
           withLabels
           tooltipDataSource="segment"
-          size={180}
-          thickness={32}
+          size={220}
+          thickness={36}
           paddingAngle={4}
         />
       </ChartCard>
@@ -100,8 +101,8 @@ export default function StatsPanel({ data }: StatsPanelProps) {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Paper p="md" radius="sm" withBorder>
-      <Text size="xs" ff="monospace" c="dimmed" mb="sm" style={{ letterSpacing: '0.1em' }}>
+    <Paper p="lg" radius="sm" withBorder>
+      <Text size="sm" ff="monospace" c="dimmed" mb="md" style={{ letterSpacing: '0.1em' }}>
         {title}
       </Text>
       {children}
