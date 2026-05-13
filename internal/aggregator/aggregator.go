@@ -95,6 +95,25 @@ func (a *Aggregator) Refresh(ctx context.Context) error {
 		}
 	}
 
+	// Deduplicate: same link (or same title when link is absent) across sources.
+	seen := make(map[string]struct{}, len(allItems))
+	deduped := allItems[:0]
+	for _, item := range allItems {
+		key := strings.ToLower(strings.TrimSpace(item.Link))
+		if key == "" {
+			key = "title:" + strings.ToLower(strings.TrimSpace(item.Title))
+		}
+		if key == "" {
+			deduped = append(deduped, item)
+			continue
+		}
+		if _, exists := seen[key]; !exists {
+			seen[key] = struct{}{}
+			deduped = append(deduped, item)
+		}
+	}
+	allItems = deduped
+
 	sort.Slice(allItems, func(i, j int) bool {
 		ti, tj := allItems[i].Published, allItems[j].Published
 		// Zero-time items (no pubDate) sink to the bottom.
