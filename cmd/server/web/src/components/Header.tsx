@@ -4,7 +4,7 @@ import {
   useComputedColorScheme, Badge, Tooltip, ActionIcon, Box, Slider
 } from '@mantine/core'
 import { useInterval } from '@mantine/hooks'
-import { IconSun, IconMoon, IconRefresh, IconShieldCheck } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconRefresh, IconRadar } from '@tabler/icons-react'
 
 const REFRESH_INTERVAL_S = 20 * 60
 
@@ -114,7 +114,7 @@ export function Header({
               alignItems: 'center',
             }}
           >
-            <IconShieldCheck size={20} color="white" stroke={2} />
+            <IconRadar size={20} color="white" stroke={2} />
           </Box>
           <Box>
             <Text
