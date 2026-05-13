@@ -46,9 +46,10 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 		mux: http.NewServeMux(),
 	}
 
-	// Auth endpoints — login is unprotected; logout and me require a session.
+	// Auth endpoints — login and logout are unprotected so stale/expired sessions
+	// can always be cleared; me requires a valid session.
 	s.mux.Handle("POST /api/auth/login", apiMiddleware(http.HandlerFunc(s.handleLogin)))
-	s.mux.Handle("POST /api/auth/logout", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleLogout))))
+	s.mux.Handle("POST /api/auth/logout", apiMiddleware(http.HandlerFunc(s.handleLogout)))
 	s.mux.Handle("GET /api/auth/me", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleMe))))
 
 	// Data endpoints — all require a valid session.
