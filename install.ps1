@@ -319,8 +319,9 @@ Write-Header "Building Go binary"
 Push-Location $InstallDir
 try {
     $binaryPath = Join-Path $InstallDir 'cyberfeed.exe'
-    Write-Info "Running: go build -o cyberfeed.exe ./cmd/server"
-    go build -o $binaryPath .\cmd\server 2>&1 | ForEach-Object { Write-Info $_ }
+    $env:CGO_ENABLED = '0'
+    Write-Info "Running: go build -ldflags=`"-s -w`" -trimpath -o cyberfeed.exe ./cmd/server"
+    go build -ldflags="-s -w" -trimpath -o $binaryPath .\cmd\server 2>&1 | ForEach-Object { Write-Info $_ }
     if ($LASTEXITCODE -ne 0) { throw "go build failed (exit $LASTEXITCODE)" }
     if (-not (Test-Path $binaryPath)) { throw "cyberfeed.exe not found after build" }
     Write-OK "Binary built: $binaryPath"
