@@ -223,38 +223,58 @@ If the database cannot be opened (e.g. permissions), the server logs a warning a
 
 By default CyberFeed is open with no login required (suitable for local use). To enable password protection, set `CYBERFEED_PASSWORD_HASH` to a bcrypt hash of your chosen password before starting the server.
 
-### Generate a password hash
+### Step 1 — Generate a password hash
 
-**Linux / macOS** (requires `htpasswd` from `apache2-utils` / `httpd-tools`, or use `python3`):
-
-```bash
-# Using htpasswd (recommended)
-htpasswd -bnBC 12 "" yourpassword | tr -d ':\n'
-
-# Using Python if htpasswd is not available
-python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(rounds=12)).decode())"
-```
-
-**Windows** (PowerShell):
-
-```powershell
-# Using Python
-python -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(rounds=12)).decode())"
-```
-
-### Start the server with auth enabled
+The binary includes a built-in `hash-password` command. No external tools required.
 
 **Linux / macOS:**
 
 ```bash
-export CYBERFEED_PASSWORD_HASH='$2y$12$...'   # paste hash from above
+./cyberfeed hash-password
+# Enter password: ········
+# Confirm password: ········
+# $2a$12$...   ← copy this entire string
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\cyberfeed.exe hash-password
+# Enter password: ········
+# Confirm password: ········
+# $2a$12$...   ← copy this entire string
+```
+
+<details>
+<summary>Alternative: generate with external tools</summary>
+
+**Linux / macOS** — requires `apache2-utils` (`sudo apt install apache2-utils`) or `httpd-tools` (`sudo dnf install httpd-tools`):
+
+```bash
+htpasswd -bnBC 12 "" yourpassword | tr -d ':\n'
+```
+
+**Any platform** — requires Python with the `bcrypt` package (`pip install bcrypt`):
+
+```bash
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(rounds=12)).decode())"
+```
+
+</details>
+
+### Step 2 — Start the server with auth enabled
+
+**Linux / macOS:**
+
+```bash
+export CYBERFEED_PASSWORD_HASH='$2a$12$...'   # paste hash from step 1
 ./cyberfeed
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-$env:CYBERFEED_PASSWORD_HASH = '$2y$12$...'   # paste hash from above
+$env:CYBERFEED_PASSWORD_HASH = '$2a$12$...'   # paste hash from step 1
 .\cyberfeed.exe
 ```
 
