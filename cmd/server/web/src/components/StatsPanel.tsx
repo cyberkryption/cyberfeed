@@ -120,14 +120,13 @@ export default function StatsPanel({
 
   // ── General charts ──────────────────────────────────────────────────────────
 
-  const sourceBarData = useMemo(
-    () =>
-      [...data.sources]
-        .filter((s) => s.itemCount > 0 && isNewsUrl(s.url))
-        .sort((a, b) => b.itemCount - a.itemCount)
-        .map((s) => ({ source: s.name, articles: s.itemCount })),
-    [data.sources]
-  )
+  const sourceBarData = useMemo(() => {
+    const cols = ['c0', 'c1', 'c2'] as const
+    return [...data.sources]
+      .filter((s) => s.itemCount > 0 && isNewsUrl(s.url))
+      .sort((a, b) => b.itemCount - a.itemCount)
+      .map((s, i) => ({ source: s.name, [cols[i % 3]]: s.itemCount }))
+  }, [data.sources])
 
   const timelineData = useMemo(() => {
     const buckets: Record<string, number> = {}
@@ -217,7 +216,12 @@ export default function StatsPanel({
           h={sourceBarData.length * 20 + 16}
           data={sourceBarData}
           dataKey="source"
-          series={[{ name: 'articles', color: 'red.6', label: 'Articles' }]}
+          type="stacked"
+          series={[
+            { name: 'c0', color: 'red.6',    label: 'Articles' },
+            { name: 'c1', color: 'orange.5', label: 'Articles' },
+            { name: 'c2', color: 'gray.5',   label: 'Articles' },
+          ]}
           orientation="horizontal"
           withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
           yAxisProps={{ width: 110, tick: { fontSize: 10, fill: tickColor } }}
