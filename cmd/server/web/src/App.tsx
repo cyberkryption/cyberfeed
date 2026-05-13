@@ -56,28 +56,14 @@ function ResizeHandle({ isDark }: { isDark: boolean }) {
   )
 }
 
-export default function App() {
-  const auth = useAuth()
+interface FeedAppProps {
+  username: string | null
+  onLogout: () => void
+}
+
+function FeedApp({ username, onLogout }: FeedAppProps) {
   const { data, loading, error, refresh, lastRefreshed } = useFeeds()
   const { readItems, markRead, toggleRead, clearAll } = useReadItems()
-
-  useEffect(() => {
-    if (error === 'HTTP 401') {
-      auth.logout()
-    }
-  }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (auth.loading) {
-    return (
-      <Center h="100vh">
-        <Loader size="lg" color="brand" type="dots" />
-      </Center>
-    )
-  }
-
-  if (!auth.authenticated) {
-    return <LoginPage onLogin={auth.login} />
-  }
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [disabledSources, setDisabledSources] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
@@ -91,8 +77,13 @@ export default function App() {
   )
   const [tickerSpeed, setTickerSpeed] = useState(100)
   const isDark = useComputedColorScheme('dark') === 'dark'
-
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (error === 'HTTP 401') {
+      onLogout()
+    }
+  }, [error, onLogout])
 
   const handleToggleSource = useCallback((name: string) => {
     setDisabledSources((prev) => {
@@ -190,8 +181,8 @@ export default function App() {
         serverUpdatedAt={data?.updatedAt ?? null}
         tickerSpeed={tickerSpeed}
         onTickerSpeedChange={setTickerSpeed}
-        username={auth.username}
-        onLogout={auth.logout}
+        username={username}
+        onLogout={onLogout}
       />
 
       <TickerBar
@@ -240,7 +231,7 @@ export default function App() {
             )}
 
             <Box ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
-              {error && !data && (
+              {error && !data && error !== 'HTTP 401' && (
                 <Alert
                   icon={<IconAlertTriangle size={16} />}
                   color="red"
@@ -361,4 +352,22 @@ export default function App() {
       </Box>
     </Box>
   )
+}
+
+export default function App() {
+  const auth = useAuth()
+
+  if (auth.loading) {
+    return (
+      <Center h="100vh">
+        <Loader size="lg" color="brand" type="dots" />
+      </Center>
+    )
+  }
+
+  if (!auth.authenticated) {
+    return <LoginPage onLogin={auth.login} />
+  }
+
+  return <FeedApp username={auth.username} onLogout={auth.logout} />
 }
