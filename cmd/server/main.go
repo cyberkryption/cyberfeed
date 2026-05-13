@@ -60,8 +60,9 @@ func main() {
 	go agg.StartAutoRefresh(ctx, 20*time.Minute)
 
 	srv, err := server.New(server.Config{
-		Addr:   ":8888",
-		Logger: logger,
+		Addr:         ":8888",
+		Logger:       logger,
+		PasswordHash: os.Getenv("CYBERFEED_PASSWORD_HASH"),
 	}, agg, staticFS)
 	if err != nil {
 		logger.Error("create server", "error", err)
