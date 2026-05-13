@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // Pre-bundle the entire tabler icons package into one file so Vite does not
+  // have to scan and resolve all 12,000+ individual icon files on every build.
+  optimizeDeps: {
+    include: ['@tabler/icons-react'],
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
