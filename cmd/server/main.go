@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -11,6 +13,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/term"
 
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
 	"github.com/cyberkryption/cyberfeed/internal/fetcher"
@@ -22,6 +27,11 @@ import (
 var embeddedWeb embed.FS
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "hash-password" {
+		runHashPassword()
+		return
+	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -89,4 +99,42 @@ func main() {
 		}
 		os.Exit(1)
 	}
+}
+
+// runHashPassword prompts for a password (twice for confirmation), generates a
+// bcrypt hash at cost 12, and prints it to stdout. No other tools required.
+func runHashPassword() {
+	fmt.Fprint(os.Stderr, "Enter password: ")
+	pw, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading password: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Fprint(os.Stderr, "Confirm password: ")
+	pw2, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading password: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !bytes.Equal(pw, pw2) {
+		fmt.Fprintln(os.Stderr, "passwords do not match")
+		os.Exit(1)
+	}
+
+	if len(pw) == 0 {
+		fmt.Fprintln(os.Stderr, "password must not be empty")
+		os.Exit(1)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword(pw, 12)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error generating hash: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println(string(hash))
 }
