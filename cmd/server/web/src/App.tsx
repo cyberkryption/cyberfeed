@@ -147,13 +147,19 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
     return items
   }, [data, selectedSource, disabledSources, search, sortBy, hideRead, readItems])
 
-  // Reset to page 1 whenever the filtered set changes.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+
+  // Clamp page immediately so switching to a smaller source never shows an empty
+  // feed while waiting for the reset effect to fire.
+  const safePage = Math.min(page, totalPages)
+
+  // Reset to page 1 whenever the active filters change (keyed on the filter
+  // state, not the derived filtered array, to avoid reference-equality issues).
   useEffect(() => {
     setPage(1)
-  }, [filtered])
+  }, [selectedSource, search, hideRead, sortBy, disabledSources])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   const handlePageChange = (p: number) => {
     setPage(p)
@@ -291,7 +297,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
                   {totalPages > 1 && (
                     <Group justify="center" mt="xl" mb="sm">
                       <Pagination
-                        value={page}
+                        value={safePage}
                         onChange={handlePageChange}
                         total={totalPages}
                         color="brand"
@@ -312,7 +318,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
                   <Group justify="center" mt={totalPages > 1 ? 'xs' : 'xl'} mb="md">
                     <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
                       {filtered.length > PAGE_SIZE
-                        ? `PAGE ${page} OF ${totalPages} · ${filtered.length} ITEMS · `
+                        ? `PAGE ${safePage} OF ${totalPages} · ${filtered.length} ITEMS · `
                         : ''}
                       SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
                       {' · '}NEXT REFRESH IN ~20 MINUTES
