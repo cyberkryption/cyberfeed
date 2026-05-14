@@ -1,9 +1,8 @@
 import { useState, useMemo, useCallback, lazy, Suspense, useRef, useEffect } from 'react'
 import {
   Box, Stack, Text, Center, Loader, Alert,
-  Group, useComputedColorScheme
+  Group, Pagination, useComputedColorScheme
 } from '@mantine/core'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import { Header } from './components/Header'
@@ -19,6 +18,8 @@ import { ALL_CHARTS } from './charts'
 import type { FeedItem } from './types'
 
 const StatsPanel = lazy(() => import('./components/StatsPanel'))
+
+const PAGE_SIZE = 25
 
 function ResizeHandle({ isDark }: { isDark: boolean }) {
   return (
@@ -76,6 +77,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
     () => ALL_CHARTS.map((c) => c.id)
   )
   const [tickerSpeed, setTickerSpeed] = useState(100)
+  const [page, setPage] = useState(1)
   const isDark = useComputedColorScheme('dark') === 'dark'
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -145,18 +147,23 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
     return items
   }, [data, selectedSource, disabledSources, search, sortBy, hideRead, readItems])
 
+  // Reset to page 1 whenever the filtered set changes.
+  useEffect(() => {
+    setPage(1)
+  }, [filtered])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const handlePageChange = (p: number) => {
+    setPage(p)
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const readCount = useMemo(
     () => (data?.items ?? []).filter((i) => readItems.has(i.link)).length,
     [data, readItems]
   )
-
-  const virtualizer = useVirtualizer({
-    count: filtered.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 148,
-    overscan: 5,
-    measureElement: (el) => el.getBoundingClientRect().height,
-  })
 
   const activeSources = data?.sources.filter((s) => s.ok).length ?? 0
 
@@ -266,50 +273,52 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
                 </Center>
               )}
 
-              {data && filtered.length > 0 && (
-                <Box
-                  style={{
-                    height: virtualizer.getTotalSize(),
-                    position: 'relative',
-                    maxWidth: 900,
-                  }}
-                >
-                  {virtualizer.getVirtualItems().map((vRow) => {
-                    const item = filtered[vRow.index]
-                    return (
-                      <Box
-                        key={vRow.index}
-                        data-index={vRow.index}
-                        ref={virtualizer.measureElement}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          transform: `translateY(${vRow.start}px)`,
-                          paddingBottom: 8,
-                        }}
-                      >
-                        <FeedCard
-                          item={item}
-                          searchQuery={search}
-                          isRead={readItems.has(item.link)}
-                          onToggleRead={() => toggleRead(item.link)}
-                          onMarkRead={() => markRead(item.link)}
-                        />
-                      </Box>
-                    )
-                  })}
-                </Box>
-              )}
+              {data && pageItems.length > 0 && (
+                <Box style={{ maxWidth: 900 }}>
+                  <Stack gap={8}>
+                    {pageItems.map((item) => (
+                      <FeedCard
+                        key={item.link}
+                        item={item}
+                        searchQuery={search}
+                        isRead={readItems.has(item.link)}
+                        onToggleRead={() => toggleRead(item.link)}
+                        onMarkRead={() => markRead(item.link)}
+                      />
+                    ))}
+                  </Stack>
 
-              {data && (
-                <Group justify="center" mt="xl" mb="md">
-                  <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
-                    SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
-                    {' · '}NEXT REFRESH IN ~20 MINUTES
-                  </Text>
-                </Group>
+                  {totalPages > 1 && (
+                    <Group justify="center" mt="xl" mb="sm">
+                      <Pagination
+                        value={page}
+                        onChange={handlePageChange}
+                        total={totalPages}
+                        color="brand"
+                        size="sm"
+                        radius="sm"
+                        withEdges
+                        styles={{
+                          control: {
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            letterSpacing: '0.04em',
+                          },
+                        }}
+                      />
+                    </Group>
+                  )}
+
+                  <Group justify="center" mt={totalPages > 1 ? 'xs' : 'xl'} mb="md">
+                    <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
+                      {filtered.length > PAGE_SIZE
+                        ? `PAGE ${page} OF ${totalPages} · ${filtered.length} ITEMS · `
+                        : ''}
+                      SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}
+                      {' · '}NEXT REFRESH IN ~20 MINUTES
+                    </Text>
+                  </Group>
+                </Box>
               )}
             </Box>
           </Panel>
