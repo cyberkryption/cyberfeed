@@ -3,9 +3,12 @@ package fetcher
 import "time"
 
 // FeedConfig holds configuration for a single RSS feed source.
+// Parser controls how the feed is parsed: "auto" (default) infers from the
+// URL extension, "xml" forces RSS/Atom, "csv" forces the CSV threat-intel parser.
 type FeedConfig struct {
-	Name string
-	URL  string
+	Name   string
+	URL    string
+	Parser string // "auto" | "xml" | "csv"
 }
 
 // FeedItem represents a single parsed RSS/Atom entry.

@@ -18,7 +18,7 @@ export function useFeeds(): UseFeedsResult {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (triggerServerRefresh = false) => {
     if (abortRef.current) {
       abortRef.current.abort()
     }
@@ -28,7 +28,11 @@ export function useFeeds(): UseFeedsResult {
     setLoading(true)
     setError(null)
     try {
-      const resp = await fetch('/api/feeds', { signal: controller.signal, credentials: 'same-origin' })
+      // POST /api/admin/refresh re-fetches all feeds server-side and returns the
+      // updated snapshot. GET /api/feeds just reads the cached snapshot.
+      const url = triggerServerRefresh ? '/api/admin/refresh' : '/api/feeds'
+      const method = triggerServerRefresh ? 'POST' : 'GET'
+      const resp = await fetch(url, { method, signal: controller.signal, credentials: 'same-origin' })
       if (resp.status === 401) throw new Error('HTTP 401')
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       const json: FeedsSnapshot = await resp.json()
@@ -51,5 +55,7 @@ export function useFeeds(): UseFeedsResult {
     }
   }, [fetchData])
 
-  return { data, loading, error, refresh: fetchData, lastRefreshed }
+  // refresh() triggers a real server-side re-fetch of all feeds.
+  // Background polls use the cached GET endpoint to avoid hammering sources.
+  return { data, loading, error, refresh: () => fetchData(true), lastRefreshed }
 }

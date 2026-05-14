@@ -43,12 +43,21 @@ func Worker(ctx context.Context, cfg FeedConfig, results chan<- FeedResult) {
 	}
 }
 
-// fetch dispatches to the correct parser based on the URL type.
+// fetch dispatches to the correct parser. cfg.Parser overrides URL-based
+// auto-detection: "csv" forces the CSV path, "xml" forces RSS/Atom, anything
+// else (including "" and "auto") falls back to the URL extension check.
 func fetch(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
-	if isCSVURL(cfg.URL) {
+	switch cfg.Parser {
+	case "csv":
 		return fetchCSV(ctx, cfg)
+	case "xml":
+		return fetchXML(ctx, cfg)
+	default:
+		if isCSVURL(cfg.URL) {
+			return fetchCSV(ctx, cfg)
+		}
+		return fetchXML(ctx, cfg)
 	}
-	return fetchXML(ctx, cfg)
 }
 
 // fetchXML downloads and parses an RSS or Atom feed.

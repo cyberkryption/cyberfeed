@@ -20,11 +20,11 @@ export function useFeedAdmin() {
     }
   }, [])
 
-  const addFeed = useCallback(async (name: string, url: string) => {
+  const addFeed = useCallback(async (name: string, url: string, parser: string) => {
     const res = await fetch('/api/admin/feeds', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, url }),
+      body: JSON.stringify({ name, url, parser }),
     })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))

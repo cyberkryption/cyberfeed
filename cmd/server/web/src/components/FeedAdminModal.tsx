@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   Modal, Stack, Group, Text, Box, TextInput, Button, Switch,
   ActionIcon, Tooltip, Loader, Alert, Badge, ScrollArea,
-  useComputedColorScheme, Divider,
+  useComputedColorScheme, Divider, SegmentedControl,
 } from '@mantine/core'
 import { IconTrash, IconPlus, IconAlertTriangle, IconRefresh } from '@tabler/icons-react'
 import { useFeedAdmin } from '../hooks/useFeedAdmin'
@@ -19,6 +19,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
 
   const [newName, setNewName] = useState('')
   const [newURL, setNewURL] = useState('')
+  const [newParser, setNewParser] = useState('auto')
   const [addError, setAddError] = useState<string | null>(null)
   const [addLoading, setAddLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -30,6 +31,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
       setAddError(null)
       setNewName('')
       setNewURL('')
+      setNewParser('auto')
     }
   }, [opened, load])
 
@@ -47,9 +49,10 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
     setAddError(null)
     setAddLoading(true)
     try {
-      await addFeed(name, url)
+      await addFeed(name, url, newParser)
       setNewName('')
       setNewURL('')
+      setNewParser('auto')
     } catch (e) {
       setAddError(String(e))
     } finally {
@@ -153,7 +156,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                           {feed.name}
                         </Text>
                         <Badge size="xs" variant="outline" color="gray" radius="sm" style={{ fontSize: 9 }}>
-                          {feed.url.toLowerCase().endsWith('.csv') ? 'CSV' : 'RSS'}
+                          {feed.parser === 'csv' || (feed.parser === 'auto' && feed.url.toLowerCase().endsWith('.csv')) ? 'CSV' : 'RSS'}
                         </Badge>
                       </Group>
                       <Text
@@ -237,7 +240,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                 value={newName}
                 onChange={(e) => setNewName(e.currentTarget.value)}
                 size="xs"
-                style={{ flex: '0 0 180px' }}
+                style={{ flex: '0 0 160px' }}
                 ff="monospace"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
               />
@@ -249,6 +252,25 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                 style={{ flex: 1 }}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
               />
+              <Tooltip
+                label="Auto: infer from URL (.csv = CSV, otherwise RSS/Atom)"
+                position="top"
+                withArrow
+                multiline
+                w={220}
+              >
+                <SegmentedControl
+                  value={newParser}
+                  onChange={setNewParser}
+                  size="xs"
+                  data={[
+                    { value: 'auto', label: 'Auto' },
+                    { value: 'xml', label: 'RSS' },
+                    { value: 'csv', label: 'CSV' },
+                  ]}
+                  color="brand"
+                />
+              </Tooltip>
               <Button
                 size="xs"
                 color="brand"
