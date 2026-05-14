@@ -193,9 +193,10 @@ func (s *Server) handleAdminListFeeds(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name   string `json:"name"`
-		URL    string `json:"url"`
-		Parser string `json:"parser"` // "auto" | "xml" | "csv"
+		Name     string `json:"name"`
+		URL      string `json:"url"`
+		Parser   string `json:"parser"`   // "auto" | "xml" | "csv" | "json"
+		Category string `json:"category"` // "auto" | "news" | "threat_intel"
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -209,11 +210,15 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "url must start with http:// or https://"})
 		return
 	}
-	if req.Parser != "" && req.Parser != "auto" && req.Parser != "xml" && req.Parser != "csv" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "parser must be auto, xml, or csv"})
+	if req.Parser != "" && req.Parser != "auto" && req.Parser != "xml" && req.Parser != "csv" && req.Parser != "json" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "parser must be auto, xml, csv, or json"})
 		return
 	}
-	if err := store.AddFeedConfig(s.db, req.Name, req.URL, req.Parser); err != nil {
+	if req.Category != "" && req.Category != "auto" && req.Category != "news" && req.Category != "threat_intel" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "category must be auto, news, or threat_intel"})
+		return
+	}
+	if err := store.AddFeedConfig(s.db, req.Name, req.URL, req.Parser, req.Category); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint") {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "a feed with that name already exists"})
 			return

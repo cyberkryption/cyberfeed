@@ -4,11 +4,17 @@ import "time"
 
 // FeedConfig holds configuration for a single RSS feed source.
 // Parser controls how the feed is parsed: "auto" (default) infers from the
-// URL extension, "xml" forces RSS/Atom, "csv" forces the CSV threat-intel parser.
+// URL extension (.csv → CSV, .json → JSON, otherwise RSS/Atom), "xml" forces
+// RSS/Atom, "csv" forces the CSV threat-intel parser, "json" forces the JSON
+// threat-intel parser.
+// Category controls which sidebar pane the feed appears in: "auto" (default)
+// uses URL-extension detection, "news" forces the NEWS pane, "threat_intel"
+// forces the THREAT INTEL pane.
 type FeedConfig struct {
-	Name   string
-	URL    string
-	Parser string // "auto" | "xml" | "csv"
+	Name     string
+	URL      string
+	Parser   string // "auto" | "xml" | "csv" | "json"
+	Category string // "auto" | "news" | "threat_intel"
 }
 
 // FeedItem represents a single parsed RSS/Atom entry.

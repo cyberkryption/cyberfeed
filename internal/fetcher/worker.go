@@ -44,20 +44,51 @@ func Worker(ctx context.Context, cfg FeedConfig, results chan<- FeedResult) {
 }
 
 // fetch dispatches to the correct parser. cfg.Parser overrides URL-based
-// auto-detection: "csv" forces the CSV path, "xml" forces RSS/Atom, anything
-// else (including "" and "auto") falls back to the URL extension check.
+// auto-detection: "csv" forces CSV, "json" forces JSON, "xml" forces RSS/Atom.
+// "auto" (or empty) infers from the URL extension.
 func fetch(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 	switch cfg.Parser {
 	case "csv":
 		return fetchCSV(ctx, cfg)
+	case "json":
+		return fetchJSON(ctx, cfg)
 	case "xml":
 		return fetchXML(ctx, cfg)
 	default:
+		lower := strings.ToLower(cfg.URL)
 		if isCSVURL(cfg.URL) {
 			return fetchCSV(ctx, cfg)
 		}
+		if strings.HasSuffix(lower, ".json") {
+			return fetchJSON(ctx, cfg)
+		}
 		return fetchXML(ctx, cfg)
 	}
+}
+
+// fetchJSON downloads a JSON threat-intel file, caches it, and parses it.
+func fetchJSON(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
+	cachePath := filepath.Join(csvCacheDir, csvFilename(cfg.URL))
+
+	body, err := httpGet(ctx, cfg.URL, csvBodyLimit, csvFetchTimeout)
+	if err != nil {
+		if cached, cacheErr := os.ReadFile(cachePath); cacheErr == nil {
+			slog.Warn("JSON fetch failed, using cached copy", "feed", cfg.Name, "error", err)
+			body = cached
+		} else {
+			return nil, fmt.Errorf("fetch %s failed and no local cache available: %w", cfg.Name, err)
+		}
+	} else {
+		if mkErr := os.MkdirAll(csvCacheDir, 0o755); mkErr == nil {
+			_ = os.WriteFile(cachePath, body, 0o644)
+		}
+	}
+
+	items, err := ParseJSON(cfg.Name, cfg.URL, body)
+	if err != nil {
+		return nil, fmt.Errorf("parse JSON %s: %w", cfg.Name, err)
+	}
+	return items, nil
 }
 
 // fetchXML downloads and parses an RSS or Atom feed.

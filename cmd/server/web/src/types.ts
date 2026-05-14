@@ -2,6 +2,8 @@ export interface FeedConfig {
   name: string
   url: string
   enabled: boolean
+  parser: string   // "auto" | "xml" | "csv" | "json"
+  category: string // "auto" | "news" | "threat_intel"
 }
 
 export interface FeedItem {
@@ -22,6 +24,8 @@ export interface FeedStatus {
   lastFetch: string
   error?: string
   ok: boolean
+  category?: string // "auto" | "news" | "threat_intel"
+  parser?: string   // "auto" | "xml" | "csv" | "json"
 }
 
 export interface FeedsSnapshot {

@@ -21,6 +21,8 @@ type FeedStatus struct {
 	LastFetch time.Time `json:"lastFetch"`
 	Error     string    `json:"error,omitempty"`
 	OK        bool      `json:"ok"`
+	Category  string    `json:"category"` // "auto" | "news" | "threat_intel"
+	Parser    string    `json:"parser"`   // "auto" | "xml" | "csv" | "json"
 }
 
 // Snapshot is the complete aggregated state served to clients.
@@ -112,6 +114,8 @@ func (a *Aggregator) Refresh(ctx context.Context) error {
 				Name:      res.Config.Name,
 				URL:       res.Config.URL,
 				LastFetch: time.Now().UTC(),
+				Category:  res.Config.Category,
+				Parser:    res.Config.Parser,
 			}
 			if res.Err != nil {
 				status.Error = res.Err.Error()
