@@ -224,10 +224,11 @@ func (s *Server) handleAdminListFeeds(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name     string `json:"name"`
-		URL      string `json:"url"`
-		Parser   string `json:"parser"`   // "auto" | "xml" | "csv" | "json"
-		Category string `json:"category"` // "auto" | "news" | "threat_intel"
+		Name            string `json:"name"`
+		URL             string `json:"url"`
+		Parser          string `json:"parser"`          // "auto" | "xml" | "csv" | "json"
+		Category        string `json:"category"`        // "auto" | "news" | "threat_intel"
+		RefreshInterval int    `json:"refreshInterval"` // minutes; 0 = global default
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -249,7 +250,11 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "category must be auto, news, or threat_intel"})
 		return
 	}
-	if err := store.AddFeedConfig(s.db, req.Name, req.URL, req.Parser, req.Category); err != nil {
+	if req.RefreshInterval < 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "refreshInterval must be >= 0"})
+		return
+	}
+	if err := store.AddFeedConfig(s.db, req.Name, req.URL, req.Parser, req.Category, req.RefreshInterval); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint") {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "a feed with that name already exists"})
 			return
@@ -280,15 +285,32 @@ func (s *Server) handleAdminSetFeedEnabled(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	var req struct {
-		Enabled bool `json:"enabled"`
+		Enabled         *bool `json:"enabled"`
+		RefreshInterval *int  `json:"refreshInterval"` // minutes; 0 = global default
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
 	}
-	if err := store.SetFeedEnabled(s.db, name, req.Enabled); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	if req.Enabled == nil && req.RefreshInterval == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "enabled or refreshInterval is required"})
 		return
+	}
+	if req.Enabled != nil {
+		if err := store.SetFeedEnabled(s.db, name, *req.Enabled); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+	}
+	if req.RefreshInterval != nil {
+		if *req.RefreshInterval < 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "refreshInterval must be >= 0"})
+			return
+		}
+		if err := store.SetFeedInterval(s.db, name, *req.RefreshInterval); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }

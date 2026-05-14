@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Modal, Stack, Group, Text, Box, TextInput, Button, Switch,
+  Modal, Stack, Group, Text, Box, TextInput, Button, Switch, Select,
   ActionIcon, Tooltip, Loader, Alert, Badge, ScrollArea,
   useComputedColorScheme, Divider, SegmentedControl,
 } from '@mantine/core'
@@ -13,14 +13,25 @@ interface FeedAdminModalProps {
   onRefresh: () => void
 }
 
+const INTERVAL_OPTIONS = [
+  { value: '0',    label: 'Global' },
+  { value: '5',    label: '5 min' },
+  { value: '15',   label: '15 min' },
+  { value: '30',   label: '30 min' },
+  { value: '60',   label: '1 hour' },
+  { value: '360',  label: '6 hours' },
+  { value: '1440', label: '24 hours' },
+]
+
 export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
-  const { feeds, loading, error, load, addFeed, deleteFeed, toggleFeed } = useFeedAdmin()
+  const { feeds, loading, error, load, addFeed, deleteFeed, toggleFeed, setFeedInterval } = useFeedAdmin()
 
   const [newName, setNewName] = useState('')
   const [newURL, setNewURL] = useState('')
   const [newParser, setNewParser] = useState('auto')
   const [newCategory, setNewCategory] = useState('auto')
+  const [newInterval, setNewInterval] = useState('0')
   const [addError, setAddError] = useState<string | null>(null)
   const [addLoading, setAddLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -34,6 +45,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
       setNewURL('')
       setNewParser('auto')
       setNewCategory('auto')
+      setNewInterval('0')
     }
   }, [opened, load])
 
@@ -51,11 +63,12 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
     setAddError(null)
     setAddLoading(true)
     try {
-      await addFeed(name, url, newParser, newCategory)
+      await addFeed(name, url, newParser, newCategory, parseInt(newInterval, 10))
       setNewName('')
       setNewURL('')
       setNewParser('auto')
       setNewCategory('auto')
+      setNewInterval('0')
     } catch (e) {
       setAddError(String(e))
     } finally {
@@ -84,6 +97,15 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
     }
   }
 
+  const handleInterval = async (name: string, value: string | null) => {
+    if (value === null) return
+    try {
+      await setFeedInterval(name, parseInt(value, 10))
+    } catch {
+      // best-effort
+    }
+  }
+
   const handleSaveAndRefresh = () => {
     onClose()
     onRefresh()
@@ -100,7 +122,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
           MANAGE FEEDS
         </Text>
       }
-      size="lg"
+      size="xl"
       styles={{
         content: {
           background: isDark ? '#13181b' : '#f5faf7',
@@ -194,6 +216,28 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                     </Box>
 
                     <Group gap="xs" align="center" style={{ flexShrink: 0 }}>
+                      <Tooltip label="Refresh interval for this feed" position="left" withArrow>
+                        <Select
+                          size="xs"
+                          w={90}
+                          value={String(feed.refreshInterval ?? 0)}
+                          onChange={(v) => handleInterval(feed.name, v)}
+                          data={INTERVAL_OPTIONS}
+                          allowDeselect={false}
+                          styles={{
+                            input: {
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              background: 'transparent',
+                              border: isDark
+                                ? '1px solid rgba(0,212,124,0.2)'
+                                : '1px solid rgba(0,120,70,0.2)',
+                              color: isDark ? 'rgba(0,212,124,0.7)' : 'rgba(0,120,70,0.8)',
+                            },
+                          }}
+                        />
+                      </Tooltip>
+
                       <Tooltip
                         label={feed.enabled ? 'Pause fetching' : 'Resume fetching'}
                         position="left"
@@ -303,6 +347,22 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                   color="brand"
                 />
               </Tooltip>
+              <Tooltip
+                label="How often to fetch this feed (Global = server default of 20 min)"
+                position="top"
+                withArrow
+                multiline
+                w={220}
+              >
+                <Select
+                  size="xs"
+                  w={100}
+                  value={newInterval}
+                  onChange={(v) => setNewInterval(v ?? '0')}
+                  data={INTERVAL_OPTIONS}
+                  allowDeselect={false}
+                />
+              </Tooltip>
               <Button
                 size="xs"
                 color="brand"
@@ -325,7 +385,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
         {/* Footer */}
         <Group justify="space-between" align="center">
           <Text size="xs" c="dimmed" ff="monospace" style={{ fontSize: 10, letterSpacing: '0.04em' }}>
-            TOGGLE = PAUSE/RESUME FETCHING · CHANGES APPLY ON NEXT REFRESH
+            INTERVAL = PER-FEED SCHEDULE · GLOBAL FOLLOWS SERVER DEFAULT (20 MIN)
           </Text>
           <Button
             size="xs"

@@ -10,11 +10,13 @@ import "time"
 // Category controls which sidebar pane the feed appears in: "auto" (default)
 // uses URL-extension detection, "news" forces the NEWS pane, "threat_intel"
 // forces the THREAT INTEL pane.
+// RefreshInterval overrides the global refresh schedule; 0 means use the global default.
 type FeedConfig struct {
-	Name     string
-	URL      string
-	Parser   string // "auto" | "xml" | "csv" | "json"
-	Category string // "auto" | "news" | "threat_intel"
+	Name            string
+	URL             string
+	Parser          string        // "auto" | "xml" | "csv" | "json"
+	Category        string        // "auto" | "news" | "threat_intel"
+	RefreshInterval time.Duration // 0 = use global default
 }
 
 // FeedItem represents a single parsed RSS/Atom entry.
