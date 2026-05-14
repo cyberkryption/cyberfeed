@@ -4,6 +4,7 @@ export interface FeedConfig {
   enabled: boolean
   parser: string   // "auto" | "xml" | "csv" | "json"
   category: string // "auto" | "news" | "threat_intel"
+  refreshInterval: number // minutes; 0 = global default
 }
 
 export interface FeedItem {

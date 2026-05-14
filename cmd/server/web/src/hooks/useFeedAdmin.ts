@@ -20,11 +20,11 @@ export function useFeedAdmin() {
     }
   }, [])
 
-  const addFeed = useCallback(async (name: string, url: string, parser: string, category: string) => {
+  const addFeed = useCallback(async (name: string, url: string, parser: string, category: string, refreshInterval = 0) => {
     const res = await fetch('/api/admin/feeds', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, url, parser, category }),
+      body: JSON.stringify({ name, url, parser, category, refreshInterval }),
     })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
@@ -49,5 +49,15 @@ export function useFeedAdmin() {
     await load()
   }, [load])
 
-  return { feeds, loading, error, load, addFeed, deleteFeed, toggleFeed }
+  const setFeedInterval = useCallback(async (name: string, refreshInterval: number) => {
+    const res = await fetch(`/api/admin/feeds/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshInterval }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    await load()
+  }, [load])
+
+  return { feeds, loading, error, load, addFeed, deleteFeed, toggleFeed, setFeedInterval }
 }

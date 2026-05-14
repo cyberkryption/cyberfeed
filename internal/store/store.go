@@ -72,9 +72,10 @@ func Open(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
-	// Add parser/category columns if the table predates them (errors are ignored when column already exists).
+	// Add columns introduced after the initial schema (errors ignored when column already exists).
 	_, _ = db.Exec(`ALTER TABLE feed_configs ADD COLUMN parser TEXT NOT NULL DEFAULT 'auto'`)
 	_, _ = db.Exec(`ALTER TABLE feed_configs ADD COLUMN category TEXT NOT NULL DEFAULT 'auto'`)
+	_, _ = db.Exec(`ALTER TABLE feed_configs ADD COLUMN refresh_interval INTEGER NOT NULL DEFAULT 0`)
 	return &Store{db: db}, nil
 }
 
