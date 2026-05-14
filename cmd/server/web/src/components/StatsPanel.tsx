@@ -211,7 +211,7 @@ export default function StatsPanel({
       </ChartCard>
     ),
     'cve-categories': (
-      <ChartCard id="cve-categories" title="TAG CLOUD" isDark={isDark}>
+      <ChartCard id="cve-categories" title="IOT CYBER TAG CLOUD" isDark={isDark}>
         {tagCloudWords.length > 0 ? (
           <Box
             style={{
