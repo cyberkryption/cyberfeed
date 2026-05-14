@@ -130,6 +130,12 @@ func (a *Aggregator) Refresh(ctx context.Context) error {
 	}
 
 	// Deduplicate: same link (or same title when link is absent) across sources.
+	// CSV/threat-intel feeds include source in the key so the same indicator
+	// appearing in multiple CSV feeds is not collapsed into a single entry.
+	// RSS news feeds keep a plain link key so cross-source duplicates are removed.
+	isCSVURL := func(u string) bool {
+		return strings.HasSuffix(strings.ToLower(strings.TrimSpace(u)), ".csv")
+	}
 	seen := make(map[string]struct{}, len(allItems))
 	deduped := allItems[:0]
 	for _, item := range allItems {
@@ -140,6 +146,9 @@ func (a *Aggregator) Refresh(ctx context.Context) error {
 		if key == "" {
 			deduped = append(deduped, item)
 			continue
+		}
+		if isCSVURL(item.SourceURL) {
+			key = strings.ToLower(item.Source) + "|" + key
 		}
 		if _, exists := seen[key]; !exists {
 			seen[key] = struct{}{}
