@@ -8,6 +8,8 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
@@ -223,17 +225,20 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = enc.Encode(v)
 }
 
-// spaHandler serves static files and falls back to index.html for SPA routing.
+// spaHandler serves embedded static assets and falls back to index.html for
+// any path that doesn't match a real file (client-side SPA routing).
+// Uses http.ServeFileFS so the root "/" never triggers a FileServer redirect.
 func spaHandler(static fs.FS) http.Handler {
-	fileServer := http.FileServer(http.FS(static))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := fs.Stat(static, r.URL.Path[1:])
-		if err != nil {
-			r2 := r.Clone(r.Context())
-			r2.URL.Path = "/"
-			fileServer.ServeHTTP(w, r2)
-			return
+		// Resolve the requested path to a clean relative fs path.
+		name := path.Clean(strings.TrimPrefix(r.URL.Path, "/"))
+		if name == "." || name == "/" {
+			name = "index.html"
 		}
-		fileServer.ServeHTTP(w, r)
+		if _, err := fs.Stat(static, name); err != nil {
+			// Unknown path → let the React router handle it client-side.
+			name = "index.html"
+		}
+		http.ServeFileFS(w, r, static, name)
 	})
 }
