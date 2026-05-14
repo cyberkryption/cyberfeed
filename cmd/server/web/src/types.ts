@@ -1,3 +1,9 @@
+export interface FeedConfig {
+  name: string
+  url: string
+  enabled: boolean
+}
+
 export interface FeedItem {
   source: string
   sourceUrl: string

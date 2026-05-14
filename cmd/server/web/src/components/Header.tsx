@@ -4,7 +4,7 @@ import {
   useComputedColorScheme, Badge, Tooltip, ActionIcon, Box, Slider
 } from '@mantine/core'
 import { useInterval } from '@mantine/hooks'
-import { IconSun, IconMoon, IconRefresh, IconRadar, IconLogout } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconRefresh, IconRadar, IconLogout, IconSettings } from '@tabler/icons-react'
 
 const REFRESH_INTERVAL_S = 20 * 60
 
@@ -19,11 +19,12 @@ interface HeaderProps {
   onTickerSpeedChange: (v: number) => void
   username: string | null
   onLogout: () => void
+  onManageFeeds: () => void
 }
 
 export function Header({
   onRefresh, loading, lastRefreshed, totalItems, activeSources, serverUpdatedAt,
-  tickerSpeed, onTickerSpeedChange, username, onLogout,
+  tickerSpeed, onTickerSpeedChange, username, onLogout, onManageFeeds,
 }: HeaderProps) {
   const { setColorScheme } = useMantineColorScheme()
   const computedColorScheme = useComputedColorScheme('dark')
@@ -253,6 +254,18 @@ export function Header({
               </>
             )}
           </Box>
+
+          <Tooltip label="Manage feeds" position="bottom">
+            <ActionIcon
+              variant="subtle"
+              color="brand"
+              size="lg"
+              onClick={onManageFeeds}
+              aria-label="Manage feeds"
+            >
+              <IconSettings size={18} />
+            </ActionIcon>
+          </Tooltip>
 
           <Tooltip label="Refresh feeds" position="bottom">
             <ActionIcon

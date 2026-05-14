@@ -47,6 +47,12 @@ CREATE TABLE IF NOT EXISTS meta (
     value TEXT NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS feed_configs (
+    name    TEXT PRIMARY KEY,
+    url     TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1
+);
+
 PRAGMA journal_mode=WAL;
 `
 
