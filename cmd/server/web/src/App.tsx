@@ -70,7 +70,6 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
   const [adminOpened, { open: openAdmin, close: closeAdmin }] = useDisclosure(false)
   const { readItems, markRead, toggleRead, clearAll } = useReadItems()
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
-  const [disabledSources, setDisabledSources] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'date' | 'source'>('date')
   const [hideRead, setHideRead] = useState(false)
@@ -96,16 +95,6 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
     }
   }, [error, onLogout])
 
-  const handleToggleSource = useCallback((name: string) => {
-    setDisabledSources((prev) => {
-      const next = new Set(prev)
-      if (next.has(name)) next.delete(name)
-      else next.add(name)
-      return next
-    })
-    setSelectedSource((sel) => (sel === name ? null : sel))
-  }, [])
-
   const handleToggleChart = useCallback((id: string) => {
     setVisibleCharts((prev) => {
       const next = new Set(prev)
@@ -123,7 +112,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
 
   const filtered = useMemo<FeedItem[]>(() => {
     if (!data?.items) return []
-    let items = data.items.filter((i) => !disabledSources.has(i.source))
+    let items = data.items
 
     if (selectedSource) {
       items = items.filter((i) => i.source === selectedSource)
@@ -154,7 +143,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
     }
 
     return items
-  }, [data, selectedSource, disabledSources, search, sortBy, hideRead, readItems])
+  }, [data, selectedSource, search, sortBy, hideRead, readItems])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
 
@@ -165,7 +154,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
   // Reset to page 1 whenever the active filters or page size change.
   useEffect(() => {
     setPage(1)
-  }, [selectedSource, search, hideRead, sortBy, disabledSources, pageSize])
+  }, [selectedSource, search, hideRead, sortBy, pageSize])
 
   const pageItems = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
 
@@ -215,9 +204,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
       <FeedAdminModal opened={adminOpened} onClose={closeAdmin} onRefresh={refresh} />
 
       <TickerBar
-        items={(data?.items ?? []).filter(
-          (i) => i.source === 'CVE High and Critical' && !disabledSources.has(i.source)
-        )}
+        items={(data?.items ?? []).filter((i) => i.source === 'CVE High and Critical')}
         tickerSpeed={tickerSpeed}
       />
 
@@ -230,8 +217,6 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
             sources={data.sources}
             selectedSource={selectedSource}
             onSelectSource={setSelectedSource}
-            disabledSources={disabledSources}
-            onToggleSource={handleToggleSource}
           />
         )}
 
