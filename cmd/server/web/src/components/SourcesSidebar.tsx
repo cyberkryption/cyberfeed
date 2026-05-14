@@ -1,9 +1,11 @@
 import {
   Stack, Text, Badge, Box, Tooltip, ScrollArea,
-  ThemeIcon, Group, Switch, useComputedColorScheme, Divider
+  ThemeIcon, Group, Switch, useComputedColorScheme, Divider, Alert,
 } from '@mantine/core'
-import { IconCircleCheck, IconCircleX, IconExternalLink } from '@tabler/icons-react'
+import { IconCircleCheck, IconCircleX, IconExternalLink, IconAlertTriangle } from '@tabler/icons-react'
 import type { FeedStatus } from '../types'
+
+const ALERT_THRESHOLD = 3
 
 interface SourcesSidebarProps {
   sources: FeedStatus[]
@@ -60,92 +62,106 @@ function SourceSection({
       {sources.map((source) => {
         const isDisabled = disabledSources.has(source.name)
         const isSelected = selectedSource === source.name
+        const failCount = source.consecutiveFailures ?? 0
+        const isCritical = !isDisabled && failCount >= ALERT_THRESHOLD
 
         return (
-          <Box
-            key={source.name}
-            px="sm"
-            py="xs"
-            onClick={() => {
-              if (!isDisabled) onSelectSource(isSelected ? null : source.name)
-            }}
-            style={{
-              cursor: isDisabled ? 'default' : 'pointer',
-              borderRadius: 4,
-              background: isSelected && !isDisabled
-                ? isDark ? 'rgba(0,212,124,0.12)' : 'rgba(0,168,95,0.1)'
-                : 'transparent',
-              transition: 'background 0.15s, opacity 0.2s',
-              opacity: isDisabled ? 0.38 : (source.ok ? 1 : 0.6),
-            }}
-          >
-            <Group justify="space-between" align="flex-start" wrap="nowrap">
-              <Group gap="xs" align="flex-start" style={{ flex: 1, minWidth: 0 }}>
-                <ThemeIcon
-                  size="xs"
-                  variant="transparent"
-                  color={source.ok ? 'green' : 'red'}
-                  style={{ marginTop: 2, flexShrink: 0 }}
-                >
-                  {source.ok
-                    ? <IconCircleCheck size={13} />
-                    : <IconCircleX size={13} />
-                  }
-                </ThemeIcon>
-                <Box style={{ minWidth: 0 }}>
-                  <Text
+          <Box key={source.name}>
+            <Box
+              px="sm"
+              py="xs"
+              onClick={() => {
+                if (!isDisabled) onSelectSource(isSelected ? null : source.name)
+              }}
+              style={{
+                cursor: isDisabled ? 'default' : 'pointer',
+                borderRadius: 4,
+                background: isCritical
+                  ? isDark ? 'rgba(255,80,50,0.08)' : 'rgba(220,50,30,0.06)'
+                  : isSelected && !isDisabled
+                    ? isDark ? 'rgba(0,212,124,0.12)' : 'rgba(0,168,95,0.1)'
+                    : 'transparent',
+                transition: 'background 0.15s, opacity 0.2s',
+                opacity: isDisabled ? 0.38 : 1,
+                outline: isCritical
+                  ? isDark ? '1px solid rgba(255,80,50,0.3)' : '1px solid rgba(220,50,30,0.25)'
+                  : 'none',
+              }}
+            >
+              <Group justify="space-between" align="flex-start" wrap="nowrap">
+                <Group gap="xs" align="flex-start" style={{ flex: 1, minWidth: 0 }}>
+                  <ThemeIcon
                     size="xs"
-                    fw={isSelected && !isDisabled ? 600 : 400}
-                    c={isSelected && !isDisabled ? 'brand' : undefined}
-                    style={{
-                      lineHeight: 1.3,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      textDecoration: isDisabled ? 'line-through' : 'none',
-                    }}
+                    variant="transparent"
+                    color={source.ok ? 'green' : (isCritical ? 'orange' : 'red')}
+                    style={{ marginTop: 2, flexShrink: 0 }}
                   >
-                    {source.name}
-                  </Text>
-                  {source.error && !isDisabled && (
-                    <Tooltip label={source.error} multiline w={200} position="right">
-                      <Text size="xs" c="red" style={{ fontSize: 10, cursor: 'help' }}>
-                        fetch error
-                      </Text>
-                    </Tooltip>
-                  )}
-                </Box>
-              </Group>
-
-              <Group gap={6} align="center" style={{ flexShrink: 0 }}>
-                {source.ok && !isDisabled && (
-                  <Badge size="xs" variant="outline" color="brand" radius="sm">
-                    {source.itemCount}
-                  </Badge>
-                )}
-                <Tooltip label="Open feed URL" position="right">
-                  <Box
-                    component="a"
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ color: 'inherit', opacity: 0.4, display: 'flex' }}
-                  >
-                    <IconExternalLink size={10} />
+                    {source.ok
+                      ? <IconCircleCheck size={13} />
+                      : isCritical
+                        ? <IconAlertTriangle size={13} />
+                        : <IconCircleX size={13} />
+                    }
+                  </ThemeIcon>
+                  <Box style={{ minWidth: 0 }}>
+                    <Text
+                      size="xs"
+                      fw={isSelected && !isDisabled ? 600 : 400}
+                      c={isSelected && !isDisabled ? 'brand' : undefined}
+                      style={{
+                        lineHeight: 1.3,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        textDecoration: isDisabled ? 'line-through' : 'none',
+                      }}
+                    >
+                      {source.name}
+                    </Text>
+                    {source.error && !isDisabled && (
+                      <Tooltip label={source.error} multiline w={200} position="right">
+                        <Text
+                          size="xs"
+                          c={isCritical ? 'orange' : 'red'}
+                          style={{ fontSize: 10, cursor: 'help' }}
+                        >
+                          {isCritical ? `failing × ${failCount}` : 'fetch error'}
+                        </Text>
+                      </Tooltip>
+                    )}
                   </Box>
-                </Tooltip>
-                <Switch
-                  size="xs"
-                  checked={!isDisabled}
-                  onChange={() => onToggleSource(source.name)}
-                  onClick={(e) => e.stopPropagation()}
-                  color="brand"
-                  aria-label={isDisabled ? `Enable ${source.name}` : `Disable ${source.name}`}
-                  styles={{ track: { cursor: 'pointer' } }}
-                />
+                </Group>
+
+                <Group gap={6} align="center" style={{ flexShrink: 0 }}>
+                  {source.ok && !isDisabled && (
+                    <Badge size="xs" variant="outline" color="brand" radius="sm">
+                      {source.itemCount}
+                    </Badge>
+                  )}
+                  <Tooltip label="Open feed URL" position="right">
+                    <Box
+                      component="a"
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ color: 'inherit', opacity: 0.4, display: 'flex' }}
+                    >
+                      <IconExternalLink size={10} />
+                    </Box>
+                  </Tooltip>
+                  <Switch
+                    size="xs"
+                    checked={!isDisabled}
+                    onChange={() => onToggleSource(source.name)}
+                    onClick={(e) => e.stopPropagation()}
+                    color="brand"
+                    aria-label={isDisabled ? `Enable ${source.name}` : `Disable ${source.name}`}
+                    styles={{ track: { cursor: 'pointer' } }}
+                  />
+                </Group>
               </Group>
-            </Group>
+            </Box>
           </Box>
         )
       })}
@@ -164,6 +180,10 @@ export function SourcesSidebar({
   const enabledTotal = sources
     .filter((s) => !disabledSources.has(s.name))
     .reduce((acc, s) => acc + s.itemCount, 0)
+
+  const criticalFeeds = sources.filter(
+    (s) => !disabledSources.has(s.name) && (s.consecutiveFailures ?? 0) >= ALERT_THRESHOLD
+  )
 
   return (
     <Box
@@ -210,6 +230,29 @@ export function SourcesSidebar({
           )}
         </Group>
       </Box>
+
+      {criticalFeeds.length > 0 && (
+        <Alert
+          icon={<IconAlertTriangle size={13} />}
+          color="orange"
+          variant="light"
+          p="xs"
+          radius={0}
+          styles={{
+            root: {
+              borderBottom: isDark ? '1px solid rgba(255,140,0,0.2)' : '1px solid rgba(200,100,0,0.15)',
+              background: isDark ? 'rgba(255,100,0,0.1)' : 'rgba(255,140,0,0.08)',
+            },
+            message: { fontSize: 11 },
+          }}
+        >
+          <Text size="xs" ff="monospace" fw={600} style={{ fontSize: 11, letterSpacing: '0.04em' }}>
+            {criticalFeeds.length === 1
+              ? `${criticalFeeds[0].name} has failed ${criticalFeeds[0].consecutiveFailures} times in a row`
+              : `${criticalFeeds.length} feeds failing persistently`}
+          </Text>
+        </Alert>
+      )}
 
       <ScrollArea h="calc(100vh - 120px)" scrollbarSize={4}>
         <Stack gap={0} p="xs">

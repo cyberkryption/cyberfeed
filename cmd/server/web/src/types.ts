@@ -27,6 +27,7 @@ export interface FeedStatus {
   ok: boolean
   category?: string // "auto" | "news" | "threat_intel"
   parser?: string   // "auto" | "xml" | "csv" | "json"
+  consecutiveFailures?: number
 }
 
 export interface FeedsSnapshot {

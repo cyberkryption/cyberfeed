@@ -15,14 +15,15 @@ import (
 
 // FeedStatus tracks per-source metadata.
 type FeedStatus struct {
-	Name      string    `json:"name"`
-	URL       string    `json:"url"`
-	ItemCount int       `json:"itemCount"`
-	LastFetch time.Time `json:"lastFetch"`
-	Error     string    `json:"error,omitempty"`
-	OK        bool      `json:"ok"`
-	Category  string    `json:"category"` // "auto" | "news" | "threat_intel"
-	Parser    string    `json:"parser"`   // "auto" | "xml" | "csv" | "json"
+	Name               string    `json:"name"`
+	URL                string    `json:"url"`
+	ItemCount          int       `json:"itemCount"`
+	LastFetch          time.Time `json:"lastFetch"`
+	Error              string    `json:"error,omitempty"`
+	OK                 bool      `json:"ok"`
+	Category           string    `json:"category"` // "auto" | "news" | "threat_intel"
+	Parser             string    `json:"parser"`   // "auto" | "xml" | "csv" | "json"
+	ConsecutiveFailures int      `json:"consecutiveFailures"`
 }
 
 // Snapshot is the complete aggregated state served to clients.
@@ -40,6 +41,7 @@ type Aggregator struct {
 	mu        sync.RWMutex
 	snapshot  Snapshot
 	lastFetch map[string]time.Time // keyed by feed name
+	failCount map[string]int       // consecutive failure count per feed name
 }
 
 // New creates an Aggregator for the given feeds. st may be nil to disable persistence.
@@ -49,6 +51,7 @@ func New(feeds []fetcher.FeedConfig, logger *slog.Logger, st *store.Store) *Aggr
 		logger:    logger,
 		store:     st,
 		lastFetch: make(map[string]time.Time),
+		failCount: make(map[string]int),
 	}
 	if st != nil {
 		a.loadFromStore()
@@ -108,6 +111,7 @@ func (a *Aggregator) activeFeeds() []fetcher.FeedConfig {
 // fetchFeeds spawns one goroutine per feed, collects results, and returns the
 // combined items and statuses. Returns an error only on context cancellation;
 // per-feed HTTP/parse errors are captured in the returned FeedStatus.
+// Must be called with a.mu unlocked; updates a.failCount under a.mu.
 func (a *Aggregator) fetchFeeds(ctx context.Context, feeds []fetcher.FeedConfig) ([]fetcher.FeedItem, []FeedStatus, error) {
 	results := make(chan fetcher.FeedResult, len(feeds))
 	for _, cfg := range feeds {
@@ -131,11 +135,18 @@ func (a *Aggregator) fetchFeeds(ctx context.Context, feeds []fetcher.FeedConfig)
 				status.Error = res.Err.Error()
 				status.OK = false
 				a.logger.Warn("feed fetch error", "feed", res.Config.Name, "error", res.Err)
+				a.mu.Lock()
+				a.failCount[res.Config.Name]++
+				status.ConsecutiveFailures = a.failCount[res.Config.Name]
+				a.mu.Unlock()
 			} else {
 				status.OK = true
 				status.ItemCount = len(res.Items)
 				items = append(items, res.Items...)
 				a.logger.Info("feed fetched", "feed", res.Config.Name, "items", len(res.Items))
+				a.mu.Lock()
+				a.failCount[res.Config.Name] = 0
+				a.mu.Unlock()
 			}
 			statuses = append(statuses, status)
 		case <-ctx.Done():
