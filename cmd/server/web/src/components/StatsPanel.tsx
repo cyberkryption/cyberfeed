@@ -104,28 +104,30 @@ export default function StatsPanel({
     return bands
   }, [cveItems])
 
-  const topCategoriesData = useMemo(() => {
-    // Strip generic CVE-feed noise terms that don't represent a specific product
-    // or vendor so the chart surfaces meaningful product/platform names.
-    const NOISE = new Set([
-      'cve', 'vulnerability', 'vulnerabilities', 'security', 'advisory',
-      'patch', 'update', 'exploit', 'risk', 'threat', 'alert', 'general',
-      'n/a', 'other', 'unknown',
-    ])
+  const tagCloudWords = useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const item of cveItems) {
+    for (const item of data.items) {
       for (const cat of (item.categories ?? [])) {
-        const key = cat.trim()
-        if (key && !NOISE.has(key.toLowerCase())) {
-          counts[key] = (counts[key] ?? 0) + 1
-        }
+        const key = cat.trim().toUpperCase()
+        if (key) counts[key] = (counts[key] ?? 0) + 1
       }
     }
-    return Object.entries(counts)
+    const entries = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([category, count]) => ({ category, count }))
-  }, [cveItems])
+      .slice(0, 60)
+    if (entries.length === 0) return []
+    const maxCount = entries[0][1]
+    const minCount = entries[entries.length - 1][1]
+    const range = maxCount === minCount ? 1 : maxCount - minCount
+    return entries.map(([word, count]) => ({
+      word,
+      count,
+      // Font size 10 – 24 px proportional to frequency
+      size: Math.round(10 + ((count - minCount) / range) * 14),
+      // Opacity 0.45 – 1.0
+      opacity: 0.45 + ((count - minCount) / range) * 0.55,
+    }))
+  }, [data.items])
 
   // ── General charts ──────────────────────────────────────────────────────────
 
@@ -209,22 +211,44 @@ export default function StatsPanel({
       </ChartCard>
     ),
     'cve-categories': (
-      <ChartCard id="cve-categories" title="TOP AFFECTED PRODUCTS & CATEGORIES" isDark={isDark}>
-        {topCategoriesData.length > 0 ? (
-          <BarChart
-            h={topCategoriesData.length * 26 + 16}
-            data={topCategoriesData}
-            dataKey="category"
-            series={[{ name: 'count', color: 'red.6', label: 'CVEs' }]}
-            orientation="horizontal"
-            withXAxis withYAxis withTooltip gridAxis="x" tickLine="none"
-            yAxisProps={{ width: 140, tick: { fontSize: 10, fill: tickColor } }}
-            xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
-          />
+      <ChartCard id="cve-categories" title="TAG CLOUD" isDark={isDark}>
+        {tagCloudWords.length > 0 ? (
+          <Box
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '6px 10px',
+              alignItems: 'baseline',
+              padding: '4px 0',
+            }}
+          >
+            {tagCloudWords.map(({ word, count, size, opacity }) => (
+              <Text
+                key={word}
+                ff="monospace"
+                title={`${word}: ${count}`}
+                style={{
+                  fontSize: size,
+                  opacity,
+                  color: isDark ? '#00d47c' : '#007840',
+                  fontWeight: size >= 18 ? 700 : size >= 14 ? 600 : 400,
+                  letterSpacing: '0.02em',
+                  lineHeight: 1.3,
+                  cursor: 'default',
+                  transition: 'opacity 0.15s',
+                  userSelect: 'none',
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = String(opacity) }}
+              >
+                {word}
+              </Text>
+            ))}
+          </Box>
         ) : (
           <Text size="xs" c="dimmed" ff="monospace" ta="center" py="lg"
             style={{ letterSpacing: '0.06em' }}>
-            NO CATEGORY DATA IN CURRENT FEED
+            NO TAG DATA IN CURRENT FEED
           </Text>
         )}
       </ChartCard>
