@@ -244,13 +244,13 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
             ADD FEED
           </Text>
           <Stack gap="xs">
-            <Group gap="xs" align="flex-start">
+            <Group gap="xs" align="flex-end">
               <TextInput
                 placeholder="Display name"
                 value={newName}
                 onChange={(e) => setNewName(e.currentTarget.value)}
                 size="xs"
-                style={{ flex: '0 0 160px' }}
+                style={{ flex: '0 0 180px' }}
                 ff="monospace"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
               />
@@ -262,6 +262,8 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                 style={{ flex: 1 }}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
               />
+            </Group>
+            <Group gap="xs" align="center">
               <Tooltip
                 label="Auto: infer from URL (.csv → CSV, .json → JSON, otherwise RSS/Atom)"
                 position="top"
