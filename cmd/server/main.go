@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -16,6 +17,7 @@ import (
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
 	"github.com/cyberkryption/cyberfeed/internal/auth"
 	"github.com/cyberkryption/cyberfeed/internal/fetcher"
+	"github.com/cyberkryption/cyberfeed/internal/logrotate"
 	"github.com/cyberkryption/cyberfeed/internal/server"
 	"github.com/cyberkryption/cyberfeed/internal/store"
 )
@@ -24,9 +26,29 @@ import (
 var embeddedWeb embed.FS
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	// Set up daily-rotating log files in ./logs, keeping 7 days.
+	logDir := os.Getenv("CYBERFEED_LOG_DIR")
+	if logDir == "" {
+		logDir = "logs"
+	}
+	logWriter, err := logrotate.New(logDir, "cyberfeed", 7)
+	if err != nil {
+		// Non-fatal: fall back to stdout-only logging and warn.
+		fmt.Fprintf(os.Stderr, "warn: could not open log directory %q: %v — logging to stdout only\n", logDir, err)
+	}
+
+	var logDest io.Writer = os.Stdout
+	if logWriter != nil {
+		logDest = io.MultiWriter(os.Stdout, logWriter)
+		defer logWriter.Close()
+	}
+
+	logger := slog.New(slog.NewTextHandler(logDest, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
+	if logWriter != nil {
+		logger.Info("logging to file", "dir", logDir)
+	}
 
 	staticFS, err := fs.Sub(embeddedWeb, "web/dist")
 	if err != nil {
