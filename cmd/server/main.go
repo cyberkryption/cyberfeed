@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -75,7 +76,23 @@ func main() {
 		}
 		adminPass := os.Getenv("CYBERFEED_ADMIN_PASSWORD")
 		if adminPass == "" {
-			logger.Error("no users exist — set CYBERFEED_ADMIN_PASSWORD (and optionally CYBERFEED_ADMIN_USERNAME) to create the initial account")
+			fmt.Fprintln(os.Stderr, "")
+			fmt.Fprintln(os.Stderr, "╔══════════════════════════════════════════════════════════╗")
+			fmt.Fprintln(os.Stderr, "║  FIRST-RUN SETUP REQUIRED                                ║")
+			fmt.Fprintln(os.Stderr, "║                                                          ║")
+			fmt.Fprintln(os.Stderr, "║  No user accounts exist. Set the admin password before   ║")
+			fmt.Fprintln(os.Stderr, "║  starting cyberfeed:                                     ║")
+			fmt.Fprintln(os.Stderr, "║                                                          ║")
+			fmt.Fprintln(os.Stderr, "║  Linux / macOS:                                          ║")
+			fmt.Fprintln(os.Stderr, "║    CYBERFEED_ADMIN_PASSWORD=yourpassword ./cyberfeed      ║")
+			fmt.Fprintln(os.Stderr, "║                                                          ║")
+			fmt.Fprintln(os.Stderr, "║  Windows PowerShell:                                     ║")
+			fmt.Fprintln(os.Stderr, "║    $env:CYBERFEED_ADMIN_PASSWORD=\"yourpassword\"           ║")
+			fmt.Fprintln(os.Stderr, "║    .\\cyberfeed.exe                                        ║")
+			fmt.Fprintln(os.Stderr, "║                                                          ║")
+			fmt.Fprintln(os.Stderr, "║  Optional: set CYBERFEED_ADMIN_USERNAME (default: admin) ║")
+			fmt.Fprintln(os.Stderr, "╚══════════════════════════════════════════════════════════╝")
+			fmt.Fprintln(os.Stderr, "")
 			os.Exit(1)
 		}
 		if err := auth.CreateUser(db, adminUser, adminPass); err != nil {
