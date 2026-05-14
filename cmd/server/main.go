@@ -181,6 +181,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	go srv.StartLimiterPruner(ctx)
+
 	go func() {
 		<-ctx.Done()
 		logger.Info("received shutdown signal, draining requests…")

@@ -30,11 +30,12 @@ type Config struct {
 
 // Server wraps the HTTP server and its dependencies.
 type Server struct {
-	cfg  Config
-	agg  *aggregator.Aggregator
-	db   *sql.DB
-	mux  *http.ServeMux
-	http *http.Server
+	cfg     Config
+	agg     *aggregator.Aggregator
+	db      *sql.DB
+	limiter *auth.LoginLimiter
+	mux     *http.ServeMux
+	http    *http.Server
 }
 
 // New constructs a Server. staticFS is the embedded React build.
@@ -43,10 +44,11 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 		return nil, fmt.Errorf("server.Config.DB must not be nil")
 	}
 	s := &Server{
-		cfg: cfg,
-		agg: agg,
-		db:  cfg.DB,
-		mux: http.NewServeMux(),
+		cfg:     cfg,
+		agg:     agg,
+		db:      cfg.DB,
+		limiter: auth.NewLoginLimiter(),
+		mux:     http.NewServeMux(),
 	}
 
 	// Auth endpoints — all three are unprotected at the transport level.
@@ -90,6 +92,21 @@ func (s *Server) ListenAndServe() error {
 	return nil
 }
 
+// StartLimiterPruner removes stale rate-limit entries every 10 minutes.
+// It exits when ctx is cancelled (i.e. on server shutdown).
+func (s *Server) StartLimiterPruner(ctx context.Context) {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.limiter.PruneStale()
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 // Shutdown gracefully drains in-flight requests before stopping.
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.cfg.Logger.Info("shutting down HTTP server")
@@ -99,6 +116,17 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // ── Auth handlers ────────────────────────────────────────────────────────────
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	ip := auth.ClientIP(r)
+
+	if ok, retryAfter := s.limiter.Allow(ip); !ok {
+		secs := int(retryAfter.Seconds()) + 1
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", secs))
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{
+			"error": fmt.Sprintf("too many failed login attempts — try again in %d seconds", secs),
+		})
+		return
+	}
+
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -110,11 +138,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	token, err := auth.Login(s.db, req.Username, req.Password)
 	if err != nil {
+		s.limiter.RecordFailure(ip)
+		s.cfg.Logger.Warn("failed login attempt", "ip", ip)
 		// Always return the same message — prevents user enumeration.
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 		return
 	}
 
+	s.limiter.RecordSuccess(ip)
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
