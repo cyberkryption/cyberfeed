@@ -13,9 +13,12 @@ interface SourcesSidebarProps {
   onToggleSource: (name: string) => void
 }
 
-function isCSVSource(s: FeedStatus) {
+function isThreatIntel(s: FeedStatus): boolean {
+  if (s.category === 'news') return false
+  if (s.category === 'threat_intel') return true
+  // "auto": treat .csv and .json URLs as threat intel
   const lower = s.url.toLowerCase().split('?')[0]
-  return lower.endsWith('.csv')
+  return lower.endsWith('.csv') || lower.endsWith('.json')
 }
 
 interface SectionProps {
@@ -155,8 +158,8 @@ export function SourcesSidebar({
 }: SourcesSidebarProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
 
-  const newsFeeds = sources.filter((s) => !isCSVSource(s))
-  const threatIntelFeeds = sources.filter((s) => isCSVSource(s))
+  const newsFeeds = sources.filter((s) => !isThreatIntel(s))
+  const threatIntelFeeds = sources.filter((s) => isThreatIntel(s))
 
   const enabledTotal = sources
     .filter((s) => !disabledSources.has(s.name))

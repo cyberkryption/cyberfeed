@@ -20,6 +20,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
   const [newName, setNewName] = useState('')
   const [newURL, setNewURL] = useState('')
   const [newParser, setNewParser] = useState('auto')
+  const [newCategory, setNewCategory] = useState('auto')
   const [addError, setAddError] = useState<string | null>(null)
   const [addLoading, setAddLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -32,6 +33,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
       setNewName('')
       setNewURL('')
       setNewParser('auto')
+      setNewCategory('auto')
     }
   }, [opened, load])
 
@@ -49,10 +51,11 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
     setAddError(null)
     setAddLoading(true)
     try {
-      await addFeed(name, url, newParser)
+      await addFeed(name, url, newParser, newCategory)
       setNewName('')
       setNewURL('')
       setNewParser('auto')
+      setNewCategory('auto')
     } catch (e) {
       setAddError(String(e))
     } finally {
@@ -156,7 +159,14 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                           {feed.name}
                         </Text>
                         <Badge size="xs" variant="outline" color="gray" radius="sm" style={{ fontSize: 9 }}>
-                          {feed.parser === 'csv' || (feed.parser === 'auto' && feed.url.toLowerCase().endsWith('.csv')) ? 'CSV' : 'RSS'}
+                          {feed.parser === 'csv' || (feed.parser === 'auto' && feed.url.toLowerCase().endsWith('.csv'))
+                            ? 'CSV'
+                            : feed.parser === 'json' || (feed.parser === 'auto' && feed.url.toLowerCase().endsWith('.json'))
+                              ? 'JSON'
+                              : 'RSS'}
+                        </Badge>
+                        <Badge size="xs" variant="light" color={feed.category === 'threat_intel' ? 'orange' : 'blue'} radius="sm" style={{ fontSize: 9 }}>
+                          {feed.category === 'threat_intel' ? 'INTEL' : 'NEWS'}
                         </Badge>
                       </Group>
                       <Text
@@ -253,11 +263,11 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
               />
               <Tooltip
-                label="Auto: infer from URL (.csv = CSV, otherwise RSS/Atom)"
+                label="Auto: infer from URL (.csv → CSV, .json → JSON, otherwise RSS/Atom)"
                 position="top"
                 withArrow
                 multiline
-                w={220}
+                w={240}
               >
                 <SegmentedControl
                   value={newParser}
@@ -267,6 +277,26 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                     { value: 'auto', label: 'Auto' },
                     { value: 'xml', label: 'RSS' },
                     { value: 'csv', label: 'CSV' },
+                    { value: 'json', label: 'JSON' },
+                  ]}
+                  color="brand"
+                />
+              </Tooltip>
+              <Tooltip
+                label="Auto: .csv/.json URLs go to THREAT INTEL, others to NEWS"
+                position="top"
+                withArrow
+                multiline
+                w={240}
+              >
+                <SegmentedControl
+                  value={newCategory}
+                  onChange={setNewCategory}
+                  size="xs"
+                  data={[
+                    { value: 'auto', label: 'Auto' },
+                    { value: 'news', label: 'News' },
+                    { value: 'threat_intel', label: 'Intel' },
                   ]}
                   color="brand"
                 />
