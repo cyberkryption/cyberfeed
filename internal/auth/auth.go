@@ -63,6 +63,30 @@ func CreateUser(db *sql.DB, username, password string) error {
 	return err
 }
 
+// UpdatePassword replaces the bcrypt hash for an existing user.
+// Returns sql.ErrNoRows if the username does not exist.
+func UpdatePassword(db *sql.DB, username, password string) error {
+	if username == "" || password == "" {
+		return fmt.Errorf("username and password must not be empty")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+	res, err := db.Exec(
+		`UPDATE users SET password_hash = ? WHERE username = ?`,
+		string(hash), username,
+	)
+	if err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 // Login validates credentials against the database and returns a new session
 // token on success. All queries use parameterised statements.
 //

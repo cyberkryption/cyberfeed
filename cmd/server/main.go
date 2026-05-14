@@ -69,12 +69,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	adminUser := os.Getenv("CYBERFEED_ADMIN_USERNAME")
+	if adminUser == "" {
+		adminUser = "admin"
+	}
+	adminPass := os.Getenv("CYBERFEED_ADMIN_PASSWORD")
+
 	if count == 0 {
-		adminUser := os.Getenv("CYBERFEED_ADMIN_USERNAME")
-		if adminUser == "" {
-			adminUser = "admin"
-		}
-		adminPass := os.Getenv("CYBERFEED_ADMIN_PASSWORD")
+		// First run: password is required.
 		if adminPass == "" {
 			fmt.Fprintln(os.Stderr, "")
 			fmt.Fprintln(os.Stderr, "╔══════════════════════════════════════════════════════════╗")
@@ -100,6 +102,15 @@ func main() {
 			os.Exit(1)
 		}
 		logger.Info("created admin user", "username", adminUser)
+	} else if adminPass != "" {
+		// Users exist and env var is set: update the named user's password so
+		// setting CYBERFEED_ADMIN_PASSWORD always reflects the current password.
+		if err := auth.UpdatePassword(db, adminUser, adminPass); err != nil {
+			logger.Warn("CYBERFEED_ADMIN_PASSWORD set but could not update password",
+				"username", adminUser, "error", err)
+		} else {
+			logger.Info("updated admin password from environment", "username", adminUser)
+		}
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
