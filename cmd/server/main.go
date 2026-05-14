@@ -85,6 +85,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Seed feed_configs from feeds.txt on first run (or if table is empty).
+	feedCount, err := store.CountFeedConfigs(db)
+	if err != nil {
+		logger.Error("count feed configs", "error", err)
+		os.Exit(1)
+	}
+	if feedCount == 0 {
+		if err := store.SeedFeedConfigs(db, feeds); err != nil {
+			logger.Error("seed feed configs", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("seeded feed configs", "count", len(feeds))
+	}
+
 	count, err := auth.UserCount(db)
 	if err != nil {
 		logger.Error("check user count", "error", err)

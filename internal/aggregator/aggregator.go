@@ -89,16 +89,23 @@ func (a *Aggregator) Snapshot() Snapshot {
 // Refresh spawns one goroutine per feed, collects results, and updates
 // the internal snapshot atomically.
 func (a *Aggregator) Refresh(ctx context.Context) error {
-	results := make(chan fetcher.FeedResult, len(a.feeds))
+	feeds := a.feeds // fallback to static list
+	if a.store != nil {
+		if dynamic, err := store.GetEnabledFeedConfigs(a.store.DB()); err == nil && len(dynamic) > 0 {
+			feeds = dynamic
+		}
+	}
 
-	for _, cfg := range a.feeds {
+	results := make(chan fetcher.FeedResult, len(feeds))
+
+	for _, cfg := range feeds {
 		go fetcher.Worker(ctx, cfg, results)
 	}
 
-	allItems := make([]fetcher.FeedItem, 0, len(a.feeds)*20)
-	statuses := make([]FeedStatus, 0, len(a.feeds))
+	allItems := make([]fetcher.FeedItem, 0, len(feeds)*20)
+	statuses := make([]FeedStatus, 0, len(feeds))
 
-	for range a.feeds {
+	for range feeds {
 		select {
 		case res := <-results:
 			status := FeedStatus{

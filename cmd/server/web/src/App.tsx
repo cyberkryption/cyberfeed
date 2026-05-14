@@ -3,6 +3,7 @@ import {
   Box, Stack, Text, Center, Loader, Alert,
   Group, Pagination, useComputedColorScheme
 } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import { Header } from './components/Header'
@@ -11,6 +12,7 @@ import { SourcesSidebar } from './components/SourcesSidebar'
 import { FeedCard } from './components/FeedCard'
 import { Toolbar } from './components/Toolbar'
 import { TickerBar } from './components/TickerBar'
+import { FeedAdminModal } from './components/FeedAdminModal'
 import { useFeeds } from './hooks/useFeeds'
 import { useAuth } from './hooks/useAuth'
 import { useReadItems } from './hooks/useReadItems'
@@ -64,6 +66,7 @@ interface FeedAppProps {
 
 function FeedApp({ username, onLogout }: FeedAppProps) {
   const { data, loading, error, refresh, lastRefreshed } = useFeeds()
+  const [adminOpened, { open: openAdmin, close: closeAdmin }] = useDisclosure(false)
   const { readItems, markRead, toggleRead, clearAll } = useReadItems()
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [disabledSources, setDisabledSources] = useState<Set<string>>(new Set())
@@ -196,7 +199,10 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
         onTickerSpeedChange={setTickerSpeed}
         username={username}
         onLogout={onLogout}
+        onManageFeeds={openAdmin}
       />
+
+      <FeedAdminModal opened={adminOpened} onClose={closeAdmin} onRefresh={refresh} />
 
       <TickerBar
         items={(data?.items ?? []).filter(

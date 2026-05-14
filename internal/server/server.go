@@ -14,6 +14,7 @@ import (
 
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
 	"github.com/cyberkryption/cyberfeed/internal/auth"
+	"github.com/cyberkryption/cyberfeed/internal/store"
 )
 
 type contextKey string
@@ -58,6 +59,12 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 	// Data endpoints — all require a valid session.
 	s.mux.Handle("GET /api/feeds", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleFeeds))))
 	s.mux.Handle("GET /api/health", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleHealth))))
+
+	// Feed admin endpoints — all require a valid session.
+	s.mux.Handle("GET /api/admin/feeds", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleAdminListFeeds))))
+	s.mux.Handle("POST /api/admin/feeds", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleAdminAddFeed))))
+	s.mux.Handle("DELETE /api/admin/feeds/{name}", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleAdminDeleteFeed))))
+	s.mux.Handle("PATCH /api/admin/feeds/{name}", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleAdminSetFeedEnabled))))
 
 	// SPA static assets — served without auth so the login form can load.
 	s.mux.Handle("/", spaHandler(staticFS))
@@ -168,6 +175,82 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// ── Feed admin handlers ───────────────────────────────────────────────────────
+
+func (s *Server) handleAdminListFeeds(w http.ResponseWriter, r *http.Request) {
+	feeds, err := store.GetFeedConfigs(s.db)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	// Return empty array instead of null when no feeds exist.
+	if feeds == nil {
+		feeds = []store.FeedConfigRow{}
+	}
+	writeJSON(w, http.StatusOK, feeds)
+}
+
+func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if req.Name == "" || req.URL == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name and url are required"})
+		return
+	}
+	if !strings.HasPrefix(req.URL, "http://") && !strings.HasPrefix(req.URL, "https://") {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "url must start with http:// or https://"})
+		return
+	}
+	if err := store.AddFeedConfig(s.db, req.Name, req.URL); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint") {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "a feed with that name already exists"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"status": "created"})
+}
+
+func (s *Server) handleAdminDeleteFeed(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+	if err := store.DeleteFeedConfig(s.db, name); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (s *Server) handleAdminSetFeedEnabled(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
+		return
+	}
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if err := store.SetFeedEnabled(s.db, name, req.Enabled); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+
 // ── Middleware ────────────────────────────────────────────────────────────────
 
 // requireSession validates the session cookie and stores the username in the
@@ -205,7 +288,7 @@ func (s *Server) unauthorized(w http.ResponseWriter) {
 func apiMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
