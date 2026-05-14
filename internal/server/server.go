@@ -65,6 +65,7 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 	s.mux.Handle("POST /api/admin/feeds", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleAdminAddFeed))))
 	s.mux.Handle("DELETE /api/admin/feeds/{name}", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleAdminDeleteFeed))))
 	s.mux.Handle("PATCH /api/admin/feeds/{name}", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleAdminSetFeedEnabled))))
+	s.mux.Handle("POST /api/admin/refresh", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleAdminRefresh))))
 
 	// SPA static assets — served without auth so the login form can load.
 	s.mux.Handle("/", spaHandler(staticFS))
@@ -73,7 +74,7 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 		Addr:         cfg.Addr,
 		Handler:      s.mux,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 60 * time.Second, // manual refresh can take ~15-20 s with all feeds in parallel
 		IdleTimeout:  60 * time.Second,
 	}
 
@@ -192,8 +193,9 @@ func (s *Server) handleAdminListFeeds(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
+		Name   string `json:"name"`
+		URL    string `json:"url"`
+		Parser string `json:"parser"` // "auto" | "xml" | "csv"
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -207,7 +209,11 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "url must start with http:// or https://"})
 		return
 	}
-	if err := store.AddFeedConfig(s.db, req.Name, req.URL); err != nil {
+	if req.Parser != "" && req.Parser != "auto" && req.Parser != "xml" && req.Parser != "csv" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "parser must be auto, xml, or csv"})
+		return
+	}
+	if err := store.AddFeedConfig(s.db, req.Name, req.URL, req.Parser); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint") {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "a feed with that name already exists"})
 			return
@@ -249,6 +255,18 @@ func (s *Server) handleAdminSetFeedEnabled(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+
+// handleAdminRefresh triggers an immediate server-side feed refresh and returns
+// the updated snapshot. The HTTP write timeout (30 s) is sufficient since feeds
+// are fetched in parallel and the slowest CSV timeout is 45 s only for very
+// large files — in practice the full refresh completes in ~2–5 s.
+func (s *Server) handleAdminRefresh(w http.ResponseWriter, r *http.Request) {
+	if err := s.agg.Refresh(r.Context()); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.agg.Snapshot())
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────

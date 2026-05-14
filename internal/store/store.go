@@ -72,6 +72,9 @@ func Open(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
+	// Add parser column to feed_configs if it was created before this column existed.
+	// ALTER TABLE ADD COLUMN is idempotent-ish: we ignore the error if it already exists.
+	_, _ = db.Exec(`ALTER TABLE feed_configs ADD COLUMN parser TEXT NOT NULL DEFAULT 'auto'`)
 	return &Store{db: db}, nil
 }
 
