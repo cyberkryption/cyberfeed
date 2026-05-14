@@ -21,7 +21,8 @@ import type { FeedItem } from './types'
 
 const StatsPanel = lazy(() => import('./components/StatsPanel'))
 
-const PAGE_SIZE = 25
+const PAGE_SIZE_KEY = 'cyberfeed.pageSize'
+const PAGE_SIZE_DEFAULT = 25
 
 function ResizeHandle({ isDark }: { isDark: boolean }) {
   return (
@@ -80,6 +81,11 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
     () => ALL_CHARTS.map((c) => c.id)
   )
   const [tickerSpeed, setTickerSpeed] = useState(100)
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const stored = localStorage.getItem(PAGE_SIZE_KEY)
+    const n = stored ? parseInt(stored, 10) : NaN
+    return [10, 25, 50, 100].includes(n) ? n : PAGE_SIZE_DEFAULT
+  })
   const [page, setPage] = useState(1)
   const isDark = useComputedColorScheme('dark') === 'dark'
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -150,19 +156,23 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
     return items
   }, [data, selectedSource, disabledSources, search, sortBy, hideRead, readItems])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
 
   // Clamp page immediately so switching to a smaller source never shows an empty
   // feed while waiting for the reset effect to fire.
   const safePage = Math.min(page, totalPages)
 
-  // Reset to page 1 whenever the active filters change (keyed on the filter
-  // state, not the derived filtered array, to avoid reference-equality issues).
+  // Reset to page 1 whenever the active filters or page size change.
   useEffect(() => {
     setPage(1)
-  }, [selectedSource, search, hideRead, sortBy, disabledSources])
+  }, [selectedSource, search, hideRead, sortBy, disabledSources, pageSize])
 
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const pageItems = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+
+  const handlePageSizeChange = (size: number) => {
+    localStorage.setItem(PAGE_SIZE_KEY, String(size))
+    setPageSize(size)
+  }
 
   const handlePageChange = (p: number) => {
     setPage(p)
@@ -246,6 +256,8 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
                 onToggleHideRead={() => setHideRead((v) => !v)}
                 readCount={readCount}
                 onClearRead={clearAll}
+                pageSize={pageSize}
+                onPageSizeChange={handlePageSizeChange}
               />
             )}
 
@@ -323,7 +335,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
 
                   <Group justify="center" mt={totalPages > 1 ? 'xs' : 'xl'} mb="md">
                     <Text size="xs" c="dimmed" ff="monospace" style={{ opacity: 0.5, letterSpacing: '0.06em' }}>
-                      {filtered.length > PAGE_SIZE
+                      {totalPages > 1
                         ? `PAGE ${safePage} OF ${totalPages} · ${filtered.length} ITEMS · `
                         : ''}
                       SERVER LAST UPDATED: {new Date(data.updatedAt).toLocaleString()}

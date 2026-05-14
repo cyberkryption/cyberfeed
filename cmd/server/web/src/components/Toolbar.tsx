@@ -5,6 +5,13 @@ import {
 import { IconSearch, IconChartBar, IconEyeOff, IconEye } from '@tabler/icons-react'
 import { ALL_CHARTS } from '../charts'
 
+const PAGE_SIZE_OPTIONS = [
+  { value: '10',  label: '10' },
+  { value: '25',  label: '25' },
+  { value: '50',  label: '50' },
+  { value: '100', label: '100' },
+]
+
 interface ToolbarProps {
   search: string
   onSearchChange: (v: string) => void
@@ -18,12 +25,15 @@ interface ToolbarProps {
   onToggleHideRead: () => void
   readCount: number
   onClearRead: () => void
+  pageSize: number
+  onPageSizeChange: (size: number) => void
 }
 
 export function Toolbar({
   search, onSearchChange, sortBy, onSortChange,
   visibleCount, totalCount, visibleCharts, onToggleChart,
   hideRead, onToggleHideRead, readCount, onClearRead,
+  pageSize, onPageSizeChange,
 }: ToolbarProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
   const activeCount = visibleCharts.size
@@ -79,6 +89,19 @@ export function Toolbar({
             label: { fontSize: 11, letterSpacing: '0.06em' },
           }}
         />
+
+        <Tooltip label="Items per page" position="bottom" withArrow>
+          <SegmentedControl
+            size="xs"
+            value={String(pageSize)}
+            onChange={(v) => onPageSizeChange(Number(v))}
+            data={PAGE_SIZE_OPTIONS}
+            styles={{
+              root: { fontFamily: '"Space Mono", monospace' },
+              label: { fontSize: 11, letterSpacing: '0.04em' },
+            }}
+          />
+        </Tooltip>
 
         {/* Hide-read toggle */}
         <Popover width={170} position="bottom-end" withArrow shadow="md" withinPortal>
