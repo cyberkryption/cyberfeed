@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -68,14 +69,32 @@ func main() {
 		os.Exit(1)
 	}
 
+	adminUser := os.Getenv("CYBERFEED_ADMIN_USERNAME")
+	if adminUser == "" {
+		adminUser = "admin"
+	}
+	adminPass := os.Getenv("CYBERFEED_ADMIN_PASSWORD")
+
 	if count == 0 {
-		adminUser := os.Getenv("CYBERFEED_ADMIN_USERNAME")
-		if adminUser == "" {
-			adminUser = "admin"
-		}
-		adminPass := os.Getenv("CYBERFEED_ADMIN_PASSWORD")
+		// First run: password is required.
 		if adminPass == "" {
-			logger.Error("no users exist — set CYBERFEED_ADMIN_PASSWORD (and optionally CYBERFEED_ADMIN_USERNAME) to create the initial account")
+			fmt.Fprintln(os.Stderr, "")
+			fmt.Fprintln(os.Stderr, "╔══════════════════════════════════════════════════════════╗")
+			fmt.Fprintln(os.Stderr, "║  FIRST-RUN SETUP REQUIRED                                ║")
+			fmt.Fprintln(os.Stderr, "║                                                          ║")
+			fmt.Fprintln(os.Stderr, "║  No user accounts exist. Set the admin password before   ║")
+			fmt.Fprintln(os.Stderr, "║  starting cyberfeed:                                     ║")
+			fmt.Fprintln(os.Stderr, "║                                                          ║")
+			fmt.Fprintln(os.Stderr, "║  Linux / macOS:                                          ║")
+			fmt.Fprintln(os.Stderr, "║    CYBERFEED_ADMIN_PASSWORD=yourpassword ./cyberfeed      ║")
+			fmt.Fprintln(os.Stderr, "║                                                          ║")
+			fmt.Fprintln(os.Stderr, "║  Windows PowerShell:                                     ║")
+			fmt.Fprintln(os.Stderr, "║    $env:CYBERFEED_ADMIN_PASSWORD=\"yourpassword\"           ║")
+			fmt.Fprintln(os.Stderr, "║    .\\cyberfeed.exe                                        ║")
+			fmt.Fprintln(os.Stderr, "║                                                          ║")
+			fmt.Fprintln(os.Stderr, "║  Optional: set CYBERFEED_ADMIN_USERNAME (default: admin) ║")
+			fmt.Fprintln(os.Stderr, "╚══════════════════════════════════════════════════════════╝")
+			fmt.Fprintln(os.Stderr, "")
 			os.Exit(1)
 		}
 		if err := auth.CreateUser(db, adminUser, adminPass); err != nil {
@@ -83,6 +102,15 @@ func main() {
 			os.Exit(1)
 		}
 		logger.Info("created admin user", "username", adminUser)
+	} else if adminPass != "" {
+		// Users exist and env var is set: update the named user's password so
+		// setting CYBERFEED_ADMIN_PASSWORD always reflects the current password.
+		if err := auth.UpdatePassword(db, adminUser, adminPass); err != nil {
+			logger.Warn("CYBERFEED_ADMIN_PASSWORD set but could not update password",
+				"username", adminUser, "error", err)
+		} else {
+			logger.Info("updated admin password from environment", "username", adminUser)
+		}
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
