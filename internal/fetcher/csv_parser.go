@@ -3,6 +3,7 @@ package fetcher
 import (
 	"encoding/csv"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -42,7 +43,8 @@ func ParseCSV(sourceName, sourceURL string, data []byte) ([]FeedItem, error) {
 	}
 
 	now := time.Now().UTC().Truncate(24 * time.Hour) // stable daily timestamp
-	items := make([]FeedItem, 0, len(rows)-1)
+	dataRows := len(rows) - 1
+	items := make([]FeedItem, 0, dataRows)
 	for _, row := range rows[1:] {
 		if len(row) == 0 {
 			continue
@@ -52,6 +54,7 @@ func ParseCSV(sourceName, sourceURL string, data []byte) ([]FeedItem, error) {
 			items = append(items, *item)
 		}
 	}
+	slog.Info("csv parsed", "source", sourceName, "data_rows", dataRows, "items_produced", len(items))
 	return items, nil
 }
 
