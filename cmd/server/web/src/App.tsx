@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback, lazy, Suspense, useRef, useEffect } from 'react'
 import {
   Box, Stack, Text, Center, Loader, Alert,
-  Group, Pagination, useComputedColorScheme
+  Group, Pagination, useComputedColorScheme, ActionIcon, ScrollArea,
 } from '@mantine/core'
+import { IconX, IconBellOff } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { IconAlertTriangle } from '@tabler/icons-react'
@@ -13,9 +14,12 @@ import { FeedCard } from './components/FeedCard'
 import { Toolbar } from './components/Toolbar'
 import { TickerBar } from './components/TickerBar'
 import { FeedAdminModal } from './components/FeedAdminModal'
+import { WatchlistModal } from './components/WatchlistModal'
 import { useFeeds } from './hooks/useFeeds'
 import { useAuth } from './hooks/useAuth'
 import { useReadItems } from './hooks/useReadItems'
+import { useWatchlist } from './hooks/useWatchlist'
+import { useWatchlistAlerts } from './hooks/useWatchlistAlerts'
 import { ALL_CHARTS } from './charts'
 import type { FeedItem } from './types'
 
@@ -68,6 +72,9 @@ interface FeedAppProps {
 function FeedApp({ username, onLogout }: FeedAppProps) {
   const { data, loading, error, refresh, lastRefreshed } = useFeeds()
   const [adminOpened, { open: openAdmin, close: closeAdmin }] = useDisclosure(false)
+  const [watchlistOpened, { open: openWatchlist, close: closeWatchlist }] = useDisclosure(false)
+  const { keywords, addKeyword, removeKeyword } = useWatchlist()
+  const { alerts, dismissAlert, dismissAll } = useWatchlistAlerts(data, keywords)
   const { readItems, markRead, toggleRead, clearAll } = useReadItems()
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -199,14 +206,108 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
         username={username}
         onLogout={onLogout}
         onManageFeeds={openAdmin}
+        onOpenWatchlist={openWatchlist}
+        watchlistAlertCount={alerts.length}
       />
 
       <FeedAdminModal opened={adminOpened} onClose={closeAdmin} onRefresh={refresh} />
+      <WatchlistModal
+        opened={watchlistOpened}
+        onClose={closeWatchlist}
+        keywords={keywords}
+        onAdd={addKeyword}
+        onRemove={removeKeyword}
+      />
 
       <TickerBar
         items={(data?.items ?? []).filter((i) => i.source === 'CVE High and Critical')}
         tickerSpeed={tickerSpeed}
       />
+
+      {/* Watchlist alert strip */}
+      {alerts.length > 0 && (
+        <Box
+          style={{
+            borderBottom: isDark ? '1px solid rgba(255,140,0,0.25)' : '1px solid rgba(200,100,0,0.2)',
+            background: isDark ? 'rgba(255,100,0,0.07)' : 'rgba(255,140,0,0.06)',
+            flexShrink: 0,
+          }}
+        >
+          <Group justify="space-between" align="center" px="md" py={4} style={{ flexWrap: 'nowrap' }}>
+            <ScrollArea scrollbarSize={4} style={{ flex: 1, minWidth: 0 }}>
+              <Group gap="xs" wrap="nowrap" py={2}>
+                {alerts.map((alert) => (
+                  <Group
+                    key={alert.id}
+                    gap={4}
+                    align="center"
+                    wrap="nowrap"
+                    style={{
+                      background: isDark ? 'rgba(255,140,0,0.12)' : 'rgba(255,140,0,0.1)',
+                      border: isDark ? '1px solid rgba(255,140,0,0.25)' : '1px solid rgba(200,100,0,0.2)',
+                      borderRadius: 4,
+                      padding: '2px 6px',
+                      flexShrink: 0,
+                      maxWidth: 340,
+                    }}
+                  >
+                    <Text
+                      size="xs"
+                      ff="monospace"
+                      fw={700}
+                      style={{ color: isDark ? '#f08c00' : '#b05c00', whiteSpace: 'nowrap', fontSize: 10 }}
+                    >
+                      [{alert.keyword}]
+                    </Text>
+                    <Text
+                      size="xs"
+                      component="a"
+                      href={alert.item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: 220,
+                        display: 'block',
+                        color: isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)',
+                        textDecoration: 'none',
+                        fontSize: 11,
+                      }}
+                      title={alert.item.title}
+                    >
+                      {alert.item.title}
+                    </Text>
+                    <ActionIcon
+                      size={14}
+                      variant="transparent"
+                      color="gray"
+                      onClick={() => dismissAlert(alert.id)}
+                      aria-label="Dismiss alert"
+                      style={{ flexShrink: 0 }}
+                    >
+                      <IconX size={10} />
+                    </ActionIcon>
+                  </Group>
+                ))}
+              </Group>
+            </ScrollArea>
+            <ActionIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              onClick={dismissAll}
+              aria-label="Dismiss all watchlist alerts"
+              title="Dismiss all"
+              style={{ flexShrink: 0, marginLeft: 4 }}
+            >
+              <IconBellOff size={14} />
+            </ActionIcon>
+          </Group>
+        </Box>
+      )}
 
       {/* Body row: sidebar | resizable(feed + stats) */}
       <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
