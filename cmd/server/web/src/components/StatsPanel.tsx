@@ -29,10 +29,12 @@ function isNewsUrl(url: string) {
   return !lower.endsWith('.csv')
 }
 
-// One colour per keyword slot — mirrors the palette used across the other charts.
+// One colour per keyword slot — visually distinct, theme-aware Mantine tokens.
+// Starts with the brand green so the first keyword always picks up the primary
+// accent colour; subsequent slots cycle through the full spectrum.
 const WATCHLIST_PALETTE = [
-  'brand.5', 'orange.5', 'red.6', 'blue.5', 'violet.5',
-  'teal.5',  'yellow.6', 'pink.5', 'cyan.5', 'grape.5',
+  'brand.5',  'blue.5',   'violet.5', 'orange.5', 'red.6',
+  'teal.5',   'grape.5',  'pink.5',   'cyan.5',   'yellow.6',
 ]
 
 interface StatsPanelProps {
@@ -219,7 +221,12 @@ export default function StatsPanel({
 
   const chartContent: Record<string, React.ReactNode> = {
     'watchlist-hits': (
-      <ChartCard id="watchlist-hits" title="WATCHLIST — HITS PER KEYWORD" isDark={isDark}>
+      <ChartCard
+        id="watchlist-hits"
+        title="WATCHLIST — HITS PER KEYWORD"
+        isDark={isDark}
+        titleColor={isDark ? '#00d47c' : '#007840'}
+      >
         {keywords.length === 0 ? (
           <Text size="xs" c="dimmed" ff="monospace" ta="center" py="lg"
             style={{ letterSpacing: '0.06em' }}>
@@ -439,7 +446,7 @@ export default function StatsPanel({
                 label: {
                   fontFamily: 'monospace', fontSize: 10,
                   letterSpacing: '0.1em',
-                  color: isDark ? 'rgba(240,140,0,0.9)' : 'rgba(160,90,0,0.9)',
+                  color: isDark ? 'rgba(0,212,124,0.9)' : 'rgba(0,120,70,0.9)',
                   fontWeight: 700,
                 },
               }}
@@ -508,9 +515,10 @@ interface ChartCardProps {
   title: string
   isDark: boolean
   children: React.ReactNode
+  titleColor?: string
 }
 
-function ChartCard({ id, title, isDark, children }: ChartCardProps) {
+function ChartCard({ id, title, isDark, children, titleColor }: ChartCardProps) {
   const {
     attributes, listeners, setNodeRef, setActivatorNodeRef,
     transform, transition, isDragging,
@@ -558,7 +566,12 @@ function ChartCard({ id, title, isDark, children }: ChartCardProps) {
         >
           <IconGripVertical size={14} />
         </Box>
-        <Text size="xs" ff="monospace" c="dimmed" style={{ letterSpacing: '0.1em', flex: 1 }}>
+        <Text
+          size="xs"
+          ff="monospace"
+          c="dimmed"
+          style={{ letterSpacing: '0.1em', flex: 1, ...(titleColor ? { color: titleColor } : {}) }}
+        >
           {title}
         </Text>
       </Box>
