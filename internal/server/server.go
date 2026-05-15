@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
@@ -28,14 +29,23 @@ type Config struct {
 	DB     *sql.DB // required — used for session validation
 }
 
+// maxRequestBodyBytes caps the size of any API request body to prevent
+// memory exhaustion from oversized payloads.
+const maxRequestBodyBytes = 1 << 20 // 1 MiB
+
+// minRefreshInterval is the minimum gap between manual feed refreshes.
+const minRefreshInterval = 30 * time.Second
+
 // Server wraps the HTTP server and its dependencies.
 type Server struct {
-	cfg     Config
-	agg     *aggregator.Aggregator
-	db      *sql.DB
-	limiter *auth.LoginLimiter
-	mux     *http.ServeMux
-	http    *http.Server
+	cfg              Config
+	agg              *aggregator.Aggregator
+	db               *sql.DB
+	limiter          *auth.LoginLimiter
+	mux              *http.ServeMux
+	http             *http.Server
+	refreshMu        sync.Mutex
+	lastManualRefresh time.Time
 }
 
 // New constructs a Server. staticFS is the embedded React build.
@@ -131,6 +141,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
@@ -146,11 +157,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.limiter.RecordSuccess(ip)
+	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   int(24 * time.Hour / time.Second),
 	})
@@ -161,11 +174,13 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(auth.CookieName); err == nil {
 		_ = auth.Logout(s.db, cookie.Value)
 	}
+	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   secure,
 		MaxAge:   -1,
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged out"})
@@ -212,7 +227,8 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAdminListFeeds(w http.ResponseWriter, r *http.Request) {
 	feeds, err := store.GetFeedConfigs(s.db)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		s.cfg.Logger.Error("list feeds", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	// Return empty array instead of null when no feeds exist.
@@ -230,6 +246,7 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 		Category        string `json:"category"`        // "auto" | "news" | "threat_intel"
 		RefreshInterval int    `json:"refreshInterval"` // minutes; 0 = global default
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
@@ -259,7 +276,8 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "a feed with that name already exists"})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		s.cfg.Logger.Error("add feed config", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]string{"status": "created"})
@@ -272,7 +290,8 @@ func (s *Server) handleAdminDeleteFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := store.DeleteFeedConfig(s.db, name); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		s.cfg.Logger.Error("delete feed config", "name", name, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
@@ -288,6 +307,7 @@ func (s *Server) handleAdminSetFeedEnabled(w http.ResponseWriter, r *http.Reques
 		Enabled         *bool `json:"enabled"`
 		RefreshInterval *int  `json:"refreshInterval"` // minutes; 0 = global default
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		return
@@ -298,7 +318,8 @@ func (s *Server) handleAdminSetFeedEnabled(w http.ResponseWriter, r *http.Reques
 	}
 	if req.Enabled != nil {
 		if err := store.SetFeedEnabled(s.db, name, *req.Enabled); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			s.cfg.Logger.Error("set feed enabled", "name", name, "error", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 			return
 		}
 	}
@@ -308,7 +329,8 @@ func (s *Server) handleAdminSetFeedEnabled(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		if err := store.SetFeedInterval(s.db, name, *req.RefreshInterval); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			s.cfg.Logger.Error("set feed interval", "name", name, "error", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 			return
 		}
 	}
@@ -320,8 +342,23 @@ func (s *Server) handleAdminSetFeedEnabled(w http.ResponseWriter, r *http.Reques
 // are fetched in parallel and the slowest CSV timeout is 45 s only for very
 // large files — in practice the full refresh completes in ~2–5 s.
 func (s *Server) handleAdminRefresh(w http.ResponseWriter, r *http.Request) {
+	s.refreshMu.Lock()
+	since := time.Since(s.lastManualRefresh)
+	if since < minRefreshInterval {
+		s.refreshMu.Unlock()
+		retryAfter := int((minRefreshInterval - since).Seconds()) + 1
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{
+			"error": fmt.Sprintf("manual refresh is rate-limited — try again in %d seconds", retryAfter),
+		})
+		return
+	}
+	s.lastManualRefresh = time.Now()
+	s.refreshMu.Unlock()
+
 	if err := s.agg.Refresh(r.Context()); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		s.cfg.Logger.Error("manual refresh", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "refresh failed"})
 		return
 	}
 	writeJSON(w, http.StatusOK, s.agg.Snapshot())
@@ -395,12 +432,16 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// apiMiddleware sets JSON content-type and same-origin CORS headers.
+// apiMiddleware sets JSON content-type, cache-control, and same-origin CORS headers.
 // The SPA and API are co-hosted so cross-origin requests are not expected;
 // the Origin is echoed back only when it matches the request Host, which
 // preserves preflight support for local dev proxies without opening a wildcard.
 func apiMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Prevent API responses (including auth/session data) from being stored
+		// in browser caches or intermediate proxies.
+		w.Header().Set("Cache-Control", "no-store")
+
 		if origin := r.Header.Get("Origin"); origin != "" {
 			// Allow the origin only when it is the same host as the server.
 			// r.Host is the value of the Host header (or the server address).
