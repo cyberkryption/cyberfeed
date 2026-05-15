@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Group, Text, Switch, useMantineColorScheme,
-  useComputedColorScheme, Badge, Tooltip, ActionIcon, Box, Slider
+  useComputedColorScheme, Badge, Tooltip, ActionIcon, Box, Slider, Indicator
 } from '@mantine/core'
 import { useInterval } from '@mantine/hooks'
-import { IconSun, IconMoon, IconRefresh, IconRadar, IconLogout, IconSettings } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconRefresh, IconRadar, IconLogout, IconSettings, IconBell } from '@tabler/icons-react'
 
 const REFRESH_INTERVAL_S = 20 * 60
 
@@ -20,11 +20,14 @@ interface HeaderProps {
   username: string | null
   onLogout: () => void
   onManageFeeds: () => void
+  onOpenWatchlist: () => void
+  watchlistAlertCount: number
 }
 
 export function Header({
   onRefresh, loading, lastRefreshed, totalItems, activeSources, serverUpdatedAt,
   tickerSpeed, onTickerSpeedChange, username, onLogout, onManageFeeds,
+  onOpenWatchlist, watchlistAlertCount,
 }: HeaderProps) {
   const { setColorScheme } = useMantineColorScheme()
   const computedColorScheme = useComputedColorScheme('dark')
@@ -265,6 +268,26 @@ export function Header({
             >
               <IconSettings size={18} />
             </ActionIcon>
+          </Tooltip>
+
+          <Tooltip label={watchlistAlertCount > 0 ? `${watchlistAlertCount} watchlist alert${watchlistAlertCount !== 1 ? 's' : ''}` : 'Watchlist'} position="bottom">
+            <Indicator
+              disabled={watchlistAlertCount === 0}
+              label={watchlistAlertCount > 9 ? '9+' : String(watchlistAlertCount)}
+              size={16}
+              color="orange"
+              styles={{ indicator: { fontSize: 9, fontFamily: 'monospace' } }}
+            >
+              <ActionIcon
+                variant={watchlistAlertCount > 0 ? 'light' : 'subtle'}
+                color={watchlistAlertCount > 0 ? 'orange' : 'brand'}
+                size="lg"
+                onClick={onOpenWatchlist}
+                aria-label="Watchlist"
+              >
+                <IconBell size={18} />
+              </ActionIcon>
+            </Indicator>
           </Tooltip>
 
           <Tooltip label="Refresh feeds" position="bottom">
