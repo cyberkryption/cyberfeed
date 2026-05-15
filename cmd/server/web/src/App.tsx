@@ -461,6 +461,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
                       visibleCharts={visibleCharts}
                       chartOrder={chartOrder}
                       onReorderCharts={handleReorderCharts}
+                      keywords={keywords}
                     />
                   </Suspense>
                 </Box>

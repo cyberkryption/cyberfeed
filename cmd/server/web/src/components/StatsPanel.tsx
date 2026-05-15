@@ -29,19 +29,51 @@ function isNewsUrl(url: string) {
   return !lower.endsWith('.csv')
 }
 
+// One colour per keyword slot — mirrors the palette used across the other charts.
+const WATCHLIST_PALETTE = [
+  'brand.5', 'orange.5', 'red.6', 'blue.5', 'violet.5',
+  'teal.5',  'yellow.6', 'pink.5', 'cyan.5', 'grape.5',
+]
+
 interface StatsPanelProps {
   data: FeedsSnapshot
   visibleCharts: Set<string>
   chartOrder: string[]
   onReorderCharts: (newOrder: string[]) => void
+  keywords: string[]
 }
 
 export default function StatsPanel({
-  data, visibleCharts, chartOrder, onReorderCharts,
+  data, visibleCharts, chartOrder, onReorderCharts, keywords,
 }: StatsPanelProps) {
   const isDark = useComputedColorScheme('dark') === 'dark'
   const tickColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)'
   const cveHeaderColor = isDark ? '#00d47c' : '#007840'
+
+  // ── Watchlist hits ──────────────────────────────────────────────────────────
+
+  const watchlistChartData = useMemo(() => {
+    if (keywords.length === 0) return { rows: [], series: [] }
+    // Assign a stable palette slot based on original keyword index (before sort)
+    // so colours don't shift as hit counts change.
+    const byKeyword = keywords.map((kw, i) => {
+      const lower = kw.toLowerCase()
+      const hits = data.items.filter((item) =>
+        (item.title       ?? '').toLowerCase().includes(lower) ||
+        (item.description ?? '').toLowerCase().includes(lower) ||
+        (item.source      ?? '').toLowerCase().includes(lower) ||
+        (item.author      ?? '').toLowerCase().includes(lower) ||
+        (item.categories  ?? []).some((c) => c.toLowerCase().includes(lower))
+      ).length
+      return { kw, hits, key: `k${i}`, color: WATCHLIST_PALETTE[i % WATCHLIST_PALETTE.length] }
+    }).sort((a, b) => b.hits - a.hits)
+
+    // One data row per keyword; only that keyword's series key is set so each
+    // bar renders in its own colour without polluting the other rows.
+    const rows = byKeyword.map(({ kw, hits, key }) => ({ keyword: kw, [key]: hits }))
+    const series = byKeyword.map(({ kw, key, color }) => ({ name: key, label: kw, color }))
+    return { rows, series }
+  }, [keywords, data.items])
 
   // ── CVE items ───────────────────────────────────────────────────────────────
 
@@ -186,6 +218,32 @@ export default function StatsPanel({
   // ── Chart content map ───────────────────────────────────────────────────────
 
   const chartContent: Record<string, React.ReactNode> = {
+    'watchlist-hits': (
+      <ChartCard id="watchlist-hits" title="WATCHLIST — HITS PER KEYWORD" isDark={isDark}>
+        {keywords.length === 0 ? (
+          <Text size="xs" c="dimmed" ff="monospace" ta="center" py="lg"
+            style={{ letterSpacing: '0.06em' }}>
+            NO KEYWORDS CONFIGURED — OPEN WATCHLIST TO ADD SOME
+          </Text>
+        ) : (
+          <BarChart
+            h={Math.max(watchlistChartData.rows.length * 30 + 16, 80)}
+            data={watchlistChartData.rows}
+            dataKey="keyword"
+            series={watchlistChartData.series}
+            type="stacked"
+            orientation="horizontal"
+            withXAxis
+            withYAxis
+            withTooltip
+            gridAxis="x"
+            tickLine="none"
+            yAxisProps={{ width: 100, tick: { fontSize: 10, fill: tickColor } }}
+            xAxisProps={{ tick: { fontSize: 10, fill: tickColor }, allowDecimals: false }}
+          />
+        )}
+      </ChartCard>
+    ),
     'cve-daily': (
       <ChartCard id="cve-daily" title="CVE DAILY VOLUME — LAST 7 DAYS" isDark={isDark}>
         <BarChart
@@ -332,6 +390,9 @@ export default function StatsPanel({
 
   const chartSectionMap = Object.fromEntries(ALL_CHARTS.map((c) => [c.id, c.section]))
 
+  const watchlistOrder = chartOrder.filter(
+    (id) => chartSectionMap[id] === 'Watchlist' && visibleCharts.has(id)
+  )
   const cveOrder = chartOrder.filter(
     (id) => chartSectionMap[id] === 'CVE' && visibleCharts.has(id)
   )
@@ -339,6 +400,7 @@ export default function StatsPanel({
     (id) => chartSectionMap[id] === 'General' && visibleCharts.has(id)
   )
 
+  const anyWatchlistVisible = watchlistOrder.length > 0
   const anyCveVisible = cveOrder.length > 0 && cveItems.length > 0
   const anyGeneralVisible = generalOrder.length > 0
 
@@ -366,6 +428,29 @@ export default function StatsPanel({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <Stack gap="md" p="md">
+
+        {/* ── Watchlist section ────────────────────────────────────────── */}
+        {anyWatchlistVisible && (
+          <>
+            <Divider
+              label="WATCHLIST"
+              labelPosition="left"
+              styles={{
+                label: {
+                  fontFamily: 'monospace', fontSize: 10,
+                  letterSpacing: '0.1em',
+                  color: isDark ? 'rgba(240,140,0,0.9)' : 'rgba(160,90,0,0.9)',
+                  fontWeight: 700,
+                },
+              }}
+            />
+            <SortableContext items={watchlistOrder} strategy={verticalListSortingStrategy}>
+              <Stack gap="md">
+                {watchlistOrder.map((id) => chartContent[id] ?? null)}
+              </Stack>
+            </SortableContext>
+          </>
+        )}
 
         {/* ── CVE section ──────────────────────────────────────────────── */}
         {anyCveVisible && (

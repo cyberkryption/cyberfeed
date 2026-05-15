@@ -183,6 +183,25 @@ export function Toolbar({
 
             <Text size="xs" c="dimmed" ff="monospace" mb={6}
               style={{ letterSpacing: '0.08em', fontSize: 10 }}>
+              WATCHLIST
+            </Text>
+            {ALL_CHARTS.filter((c) => c.section === 'Watchlist').map((c) => (
+              <Checkbox
+                key={c.id}
+                label={c.label}
+                checked={visibleCharts.has(c.id)}
+                onChange={() => onToggleChart(c.id)}
+                size="xs"
+                mb={6}
+                color="brand"
+                styles={{ label: { fontSize: 12 } }}
+              />
+            ))}
+
+            <Divider my="xs" />
+
+            <Text size="xs" c="dimmed" ff="monospace" mb={6}
+              style={{ letterSpacing: '0.08em', fontSize: 10 }}>
               CVE HIGH &amp; CRITICAL
             </Text>
             {ALL_CHARTS.filter((c) => c.section === 'CVE').map((c) => (
