@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
+	"github.com/cyberkryption/cyberfeed/internal/audit"
 	"github.com/cyberkryption/cyberfeed/internal/auth"
 	"github.com/cyberkryption/cyberfeed/internal/fetcher"
 	"github.com/cyberkryption/cyberfeed/internal/logrotate"
@@ -168,13 +169,29 @@ func main() {
 		}
 	}()
 
+	// Open the NDJSON security-event audit log.
+	auditPath := os.Getenv("CYBERFEED_AUDIT_LOG")
+	if auditPath == "" {
+		auditPath = "security-events.json"
+	}
+	auditLog, err := audit.New(auditPath)
+	if err != nil {
+		// Non-fatal: warn and continue without audit logging.
+		logger.Warn("could not open audit log — security events will not be recorded",
+			"path", auditPath, "error", err)
+	} else {
+		defer auditLog.Close()
+		logger.Info("audit log opened", "path", auditPath)
+	}
+
 	agg := aggregator.New(feeds, logger, st)
 	go agg.StartAutoRefresh(ctx, 20*time.Minute)
 
 	srv, err := server.New(server.Config{
-		Addr:   ":8888",
-		Logger: logger,
-		DB:     db,
+		Addr:     ":8888",
+		Logger:   logger,
+		DB:       db,
+		AuditLog: auditLog,
 	}, agg, staticFS)
 	if err != nil {
 		logger.Error("create server", "error", err)

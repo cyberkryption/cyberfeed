@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
+	"github.com/cyberkryption/cyberfeed/internal/audit"
 	"github.com/cyberkryption/cyberfeed/internal/auth"
 	"github.com/cyberkryption/cyberfeed/internal/fetcher"
 	"github.com/cyberkryption/cyberfeed/internal/store"
@@ -25,9 +26,10 @@ const usernameCtxKey contextKey = "username"
 
 // Config holds server configuration.
 type Config struct {
-	Addr   string
-	Logger *slog.Logger
-	DB     *sql.DB // required — used for session validation
+	Addr     string
+	Logger   *slog.Logger
+	DB       *sql.DB       // required — used for session validation
+	AuditLog *audit.Logger // optional — nil disables audit logging
 }
 
 // maxRequestBodyBytes caps the size of any API request body to prevent
@@ -125,6 +127,13 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.http.Shutdown(ctx)
 }
 
+// audit writes a security event to the audit log. It is a no-op when no
+// AuditLog is configured. ip is always included; additional fields are passed
+// as a flat map and merged at the top level of the NDJSON record.
+func (s *Server) audit(event string, fields map[string]any) {
+	s.cfg.AuditLog.Log(event, fields)
+}
+
 // ── Auth handlers ────────────────────────────────────────────────────────────
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -132,6 +141,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	if ok, retryAfter := s.limiter.Allow(ip); !ok {
 		secs := int(retryAfter.Seconds()) + 1
+		s.audit(audit.EventLoginRateLimited, map[string]any{"ip": ip})
 		w.Header().Set("Retry-After", fmt.Sprintf("%d", secs))
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{
 			"error": fmt.Sprintf("too many failed login attempts — try again in %d seconds", secs),
@@ -153,12 +163,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.limiter.RecordFailure(ip)
 		s.cfg.Logger.Warn("failed login attempt", "ip", ip)
+		s.audit(audit.EventLoginFailure, map[string]any{"ip": ip, "username_attempted": req.Username})
 		// Always return the same message — prevents user enumeration.
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 		return
 	}
 
 	s.limiter.RecordSuccess(ip)
+	s.audit(audit.EventLoginSuccess, map[string]any{"ip": ip, "username": req.Username})
 	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
@@ -173,9 +185,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	ip := auth.ClientIP(r)
+	var username string
 	if cookie, err := r.Cookie(auth.CookieName); err == nil {
+		// Resolve username before the session is deleted.
+		username, _ = auth.ValidateSession(s.db, cookie.Value)
 		_ = auth.Logout(s.db, cookie.Value)
 	}
+	s.audit(audit.EventLogout, map[string]any{"ip": ip, "username": username})
 	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
@@ -235,7 +252,9 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ip := auth.ClientIP(r)
 	if err := auth.VerifyPassword(s.db, username, req.CurrentPassword); err != nil {
+		s.audit(audit.EventPasswordChangeFail, map[string]any{"ip": ip, "username": username})
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "current password is incorrect"})
 		return
 	}
@@ -246,6 +265,7 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.audit(audit.EventPasswordChanged, map[string]any{"ip": ip, "username": username})
 	// Clear the session cookie — the session was just deleted server-side.
 	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 	http.SetCookie(w, &http.Cookie{
@@ -287,6 +307,9 @@ func (s *Server) handleAdminListFeeds(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
+	ip := auth.ClientIP(r)
+	username, _ := r.Context().Value(usernameCtxKey).(string)
+
 	var req struct {
 		Name            string `json:"name"`
 		URL             string `json:"url"`
@@ -308,6 +331,10 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := fetcher.ValidateFeedURL(req.URL); err != nil {
+		s.audit(audit.EventSSRFBlocked, map[string]any{
+			"ip": ip, "username": username,
+			"feed_name": req.Name, "feed_url": req.URL, "reason": err.Error(),
+		})
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid feed URL: " + err.Error()})
 		return
 	}
@@ -332,6 +359,10 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
+	s.audit(audit.EventFeedAdded, map[string]any{
+		"ip": ip, "username": username,
+		"feed_name": req.Name, "feed_url": req.URL, "parser": req.Parser, "category": req.Category,
+	})
 	writeJSON(w, http.StatusCreated, map[string]string{"status": "created"})
 }
 
@@ -346,6 +377,10 @@ func (s *Server) handleAdminDeleteFeed(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 		return
 	}
+	username, _ := r.Context().Value(usernameCtxKey).(string)
+	s.audit(audit.EventFeedDeleted, map[string]any{
+		"ip": auth.ClientIP(r), "username": username, "feed_name": name,
+	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
@@ -374,6 +409,11 @@ func (s *Server) handleAdminSetFeedEnabled(w http.ResponseWriter, r *http.Reques
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 			return
 		}
+		username, _ := r.Context().Value(usernameCtxKey).(string)
+		s.audit(audit.EventFeedToggled, map[string]any{
+			"ip": auth.ClientIP(r), "username": username,
+			"feed_name": name, "enabled": *req.Enabled,
+		})
 	}
 	if req.RefreshInterval != nil {
 		if *req.RefreshInterval < 0 {
@@ -422,13 +462,20 @@ func (s *Server) handleAdminRefresh(w http.ResponseWriter, r *http.Request) {
 // request context. Returns 401 if the cookie is missing or invalid.
 func (s *Server) requireSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip := auth.ClientIP(r)
 		cookie, err := r.Cookie(auth.CookieName)
 		if err != nil {
+			s.audit(audit.EventSessionRejected, map[string]any{
+				"ip": ip, "reason": "no_cookie", "path": r.URL.Path,
+			})
 			s.unauthorized(w)
 			return
 		}
 		username, err := auth.ValidateSession(s.db, cookie.Value)
 		if err != nil {
+			s.audit(audit.EventSessionRejected, map[string]any{
+				"ip": ip, "reason": "invalid_token", "path": r.URL.Path,
+			})
 			// Clear the stale cookie.
 			http.SetCookie(w, &http.Cookie{
 				Name:     auth.CookieName,
