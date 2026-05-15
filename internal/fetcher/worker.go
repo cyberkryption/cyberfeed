@@ -23,10 +23,20 @@ const (
 )
 
 // httpClient is shared across all workers so TCP connections are reused.
+// It uses a custom transport whose DialContext blocks private/reserved
+// addresses at connection time, preventing DNS-rebinding attacks.
 var httpClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext: safeDialContext,
+	},
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 5 {
 			return fmt.Errorf("too many redirects")
+		}
+		// Validate each redirect target so an open redirect cannot point to a
+		// private address (DNS check runs; dial-time guard catches rebinding).
+		if err := ValidateFeedURL(req.URL.String()); err != nil {
+			return fmt.Errorf("redirect blocked: %w", err)
 		}
 		return nil
 	},

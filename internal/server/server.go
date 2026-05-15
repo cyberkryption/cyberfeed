@@ -15,6 +15,7 @@ import (
 
 	"github.com/cyberkryption/cyberfeed/internal/aggregator"
 	"github.com/cyberkryption/cyberfeed/internal/auth"
+	"github.com/cyberkryption/cyberfeed/internal/fetcher"
 	"github.com/cyberkryption/cyberfeed/internal/store"
 )
 
@@ -257,6 +258,10 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 	}
 	if !strings.HasPrefix(req.URL, "http://") && !strings.HasPrefix(req.URL, "https://") {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "url must start with http:// or https://"})
+		return
+	}
+	if err := fetcher.ValidateFeedURL(req.URL); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid feed URL: " + err.Error()})
 		return
 	}
 	if req.Parser != "" && req.Parser != "auto" && req.Parser != "xml" && req.Parser != "csv" && req.Parser != "json" {
