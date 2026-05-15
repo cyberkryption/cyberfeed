@@ -105,6 +105,10 @@ export default function StatsPanel({
   }, [cveItems])
 
   const tagCloudWords = useMemo(() => {
+    // Palette mirrors the colours used across the other charts (dark / light variants).
+    const darkPalette  = ['#00d47c', '#f08c00', '#e03131', '#228be6', '#ae3ec9', '#e8590c', '#2f9e44', '#f76707']
+    const lightPalette = ['#007840', '#d97706', '#c92a2a', '#1c7ed6', '#9c36b5', '#d1580a', '#2f9e44', '#e8590c']
+
     const counts: Record<string, number> = {}
     for (const item of data.items) {
       for (const cat of (item.categories ?? [])) {
@@ -114,18 +118,20 @@ export default function StatsPanel({
     }
     const entries = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 60)
+      .slice(0, 20)
     if (entries.length === 0) return []
     const maxCount = entries[0][1]
     const minCount = entries[entries.length - 1][1]
     const range = maxCount === minCount ? 1 : maxCount - minCount
-    return entries.map(([word, count]) => ({
+    return entries.map(([word, count], i) => ({
       word,
       count,
-      // Font size 10 – 24 px proportional to frequency
-      size: Math.round(10 + ((count - minCount) / range) * 14),
-      // Opacity 0.45 – 1.0
-      opacity: 0.45 + ((count - minCount) / range) * 0.55,
+      // Font size 12 – 28 px proportional to frequency
+      size: Math.round(12 + ((count - minCount) / range) * 16),
+      // Opacity 0.6 – 1.0 (narrower range since colour already conveys prominence)
+      opacity: 0.6 + ((count - minCount) / range) * 0.4,
+      darkColor:  darkPalette[i % darkPalette.length],
+      lightColor: lightPalette[i % lightPalette.length],
     }))
   }, [data.items])
 
@@ -222,7 +228,7 @@ export default function StatsPanel({
               padding: '4px 0',
             }}
           >
-            {tagCloudWords.map(({ word, count, size, opacity }) => (
+            {tagCloudWords.map(({ word, count, size, opacity, darkColor, lightColor }) => (
               <Text
                 key={word}
                 ff="monospace"
@@ -230,8 +236,8 @@ export default function StatsPanel({
                 style={{
                   fontSize: size,
                   opacity,
-                  color: isDark ? '#00d47c' : '#007840',
-                  fontWeight: size >= 18 ? 700 : size >= 14 ? 600 : 400,
+                  color: isDark ? darkColor : lightColor,
+                  fontWeight: size >= 22 ? 700 : size >= 16 ? 600 : 400,
                   letterSpacing: '0.02em',
                   lineHeight: 1.3,
                   cursor: 'default',
