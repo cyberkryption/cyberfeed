@@ -74,7 +74,7 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 
 	s.http = &http.Server{
 		Addr:         cfg.Addr,
-		Handler:      s.mux,
+		Handler:      securityHeaders(s.mux),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 60 * time.Second, // manual refresh can take ~15-20 s with all feeds in parallel
 		IdleTimeout:  60 * time.Second,
@@ -360,12 +360,58 @@ func (s *Server) unauthorized(w http.ResponseWriter) {
 	writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication required"})
 }
 
-// apiMiddleware sets JSON content-type and permissive CORS headers.
+// securityHeaders adds standard HTTP security headers to every response.
+// It wraps the top-level mux so both API and SPA routes are covered.
+// HSTS is only sent when the connection is TLS (direct or via a trusted proxy).
+func securityHeaders(next http.Handler) http.Handler {
+	// Content-Security-Policy notes:
+	//   • script-src 'self'          — all JS is bundled and served from the same origin
+	//   • style-src 'self' 'unsafe-inline' — Mantine injects small inline style blocks
+	//   • img-src 'self' data:       — favicon + any base64-encoded images
+	//   • font-src 'self'            — fonts are bundled into the dist assets
+	//   • connect-src 'self'         — all XHR/fetch goes to the same origin API
+	//   • frame-ancestors 'none'     — disallows embedding in iframes (clickjacking)
+	const csp = "default-src 'self'; " +
+		"script-src 'self'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data:; " +
+		"font-src 'self'; " +
+		"connect-src 'self'; " +
+		"frame-ancestors 'none'"
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", csp)
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		// HSTS: only meaningful over TLS. Honour X-Forwarded-Proto for deployments
+		// behind a TLS-terminating reverse proxy (nginx, Caddy, etc.).
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// apiMiddleware sets JSON content-type and same-origin CORS headers.
+// The SPA and API are co-hosted so cross-origin requests are not expected;
+// the Origin is echoed back only when it matches the request Host, which
+// preserves preflight support for local dev proxies without opening a wildcard.
 func apiMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PATCH, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if origin := r.Header.Get("Origin"); origin != "" {
+			// Allow the origin only when it is the same host as the server.
+			// r.Host is the value of the Host header (or the server address).
+			if strings.HasSuffix(origin, r.Host) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PATCH, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Vary", "Origin")
+			}
+		}
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
