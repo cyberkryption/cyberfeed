@@ -15,6 +15,7 @@ import { Toolbar } from './components/Toolbar'
 import { TickerBar } from './components/TickerBar'
 import { FeedAdminModal } from './components/FeedAdminModal'
 import { WatchlistModal } from './components/WatchlistModal'
+import { ChangePasswordModal } from './components/ChangePasswordModal'
 import { useFeeds } from './hooks/useFeeds'
 import { useAuth } from './hooks/useAuth'
 import { useReadItems } from './hooks/useReadItems'
@@ -73,6 +74,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
   const { data, loading, error, refresh, lastRefreshed } = useFeeds()
   const [adminOpened, { open: openAdmin, close: closeAdmin }] = useDisclosure(false)
   const [watchlistOpened, { open: openWatchlist, close: closeWatchlist }] = useDisclosure(false)
+  const [changePwOpened, { open: openChangePw, close: closeChangePw }] = useDisclosure(false)
   const { keywords, addKeyword, removeKeyword } = useWatchlist()
   const { alerts, dismissAlert, dismissAll } = useWatchlistAlerts(data, keywords)
   const { readItems, markRead, toggleRead, clearAll } = useReadItems()
@@ -208,9 +210,11 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
         onManageFeeds={openAdmin}
         onOpenWatchlist={openWatchlist}
         watchlistAlertCount={alerts.length}
+        onChangePassword={openChangePw}
       />
 
       <FeedAdminModal opened={adminOpened} onClose={closeAdmin} onRefresh={refresh} />
+      <ChangePasswordModal opened={changePwOpened} onClose={closeChangePw} onSuccess={onLogout} />
       <WatchlistModal
         opened={watchlistOpened}
         onClose={closeWatchlist}
