@@ -4,7 +4,7 @@ import {
   useComputedColorScheme, Badge, Tooltip, ActionIcon, Box, Slider, Indicator
 } from '@mantine/core'
 import { useInterval } from '@mantine/hooks'
-import { IconSun, IconMoon, IconRefresh, IconRadar, IconLogout, IconSettings, IconBell } from '@tabler/icons-react'
+import { IconSun, IconMoon, IconRefresh, IconRadar, IconLogout, IconSettings, IconBell, IconLock } from '@tabler/icons-react'
 
 const REFRESH_INTERVAL_S = 20 * 60
 
@@ -22,12 +22,13 @@ interface HeaderProps {
   onManageFeeds: () => void
   onOpenWatchlist: () => void
   watchlistAlertCount: number
+  onChangePassword: () => void
 }
 
 export function Header({
   onRefresh, loading, lastRefreshed, totalItems, activeSources, serverUpdatedAt,
   tickerSpeed, onTickerSpeedChange, username, onLogout, onManageFeeds,
-  onOpenWatchlist, watchlistAlertCount,
+  onOpenWatchlist, watchlistAlertCount, onChangePassword,
 }: HeaderProps) {
   const { setColorScheme } = useMantineColorScheme()
   const computedColorScheme = useComputedColorScheme('dark')
@@ -320,6 +321,20 @@ export function Header({
               }}
             />
           </Tooltip>
+
+          {username && (
+            <Tooltip label="Change password" position="bottom">
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="lg"
+                onClick={onChangePassword}
+                aria-label="Change password"
+              >
+                <IconLock size={18} />
+              </ActionIcon>
+            </Tooltip>
+          )}
 
           {username && (
             <Tooltip label={`Sign out (${username})`} position="bottom">

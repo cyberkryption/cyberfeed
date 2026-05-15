@@ -63,7 +63,8 @@ func CreateUser(db *sql.DB, username, password string) error {
 	return err
 }
 
-// UpdatePassword replaces the bcrypt hash for an existing user.
+// UpdatePassword replaces the bcrypt hash for an existing user and atomically
+// invalidates all of that user's sessions so stale tokens cannot be reused.
 // Returns sql.ErrNoRows if the username does not exist.
 func UpdatePassword(db *sql.DB, username, password string) error {
 	if username == "" || password == "" {
@@ -73,16 +74,44 @@ func UpdatePassword(db *sql.DB, username, password string) error {
 	if err != nil {
 		return fmt.Errorf("hash password: %w", err)
 	}
-	res, err := db.Exec(
-		`UPDATE users SET password_hash = ? WHERE username = ?`,
-		string(hash), username,
-	)
+
+	tx, err := db.Begin()
 	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	var userID int64
+	if err := tx.QueryRow(`SELECT id FROM users WHERE username = ?`, username).Scan(&userID); err == sql.ErrNoRows {
+		return sql.ErrNoRows
+	} else if err != nil {
+		return fmt.Errorf("lookup user: %w", err)
+	}
+
+	if _, err := tx.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, string(hash), userID); err != nil {
 		return fmt.Errorf("update password: %w", err)
 	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		return sql.ErrNoRows
+	if _, err := tx.Exec(`DELETE FROM sessions WHERE user_id = ?`, userID); err != nil {
+		return fmt.Errorf("invalidate sessions: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+// VerifyPassword checks whether password matches the stored bcrypt hash for
+// username. Returns a non-nil error for both "user not found" and "wrong
+// password" — callers should not distinguish the two cases.
+func VerifyPassword(db *sql.DB, username, password string) error {
+	var hash string
+	err := db.QueryRow(`SELECT password_hash FROM users WHERE username = ?`, username).Scan(&hash)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("invalid credentials")
+	}
+	if err != nil {
+		return fmt.Errorf("lookup user: %w", err)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
+		return fmt.Errorf("invalid credentials")
 	}
 	return nil
 }

@@ -68,6 +68,7 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 	s.mux.Handle("POST /api/auth/login", apiMiddleware(http.HandlerFunc(s.handleLogin)))
 	s.mux.Handle("POST /api/auth/logout", apiMiddleware(http.HandlerFunc(s.handleLogout)))
 	s.mux.Handle("GET /api/auth/me", apiMiddleware(http.HandlerFunc(s.handleMe)))
+	s.mux.Handle("POST /api/auth/change-password", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleChangePassword))))
 
 	// Data endpoints — all require a valid session.
 	s.mux.Handle("GET /api/feeds", apiMiddleware(s.requireSession(http.HandlerFunc(s.handleFeeds))))
@@ -211,6 +212,52 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, meResponse{Authenticated: true, Username: username})
+}
+
+func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
+	username, _ := r.Context().Value(usernameCtxKey).(string)
+
+	var req struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "currentPassword and newPassword are required"})
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "new password must be at least 8 characters"})
+		return
+	}
+
+	if err := auth.VerifyPassword(s.db, username, req.CurrentPassword); err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "current password is incorrect"})
+		return
+	}
+
+	if err := auth.UpdatePassword(s.db, username, req.NewPassword); err != nil {
+		s.cfg.Logger.Error("change password", "username", username, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
+
+	// Clear the session cookie — the session was just deleted server-side.
+	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.CookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		MaxAge:   -1,
+	})
+	s.cfg.Logger.Info("password changed — all sessions invalidated", "username", username)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "password changed"})
 }
 
 // ── Feed handlers ─────────────────────────────────────────────────────────────
