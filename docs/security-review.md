@@ -75,22 +75,28 @@ No separate terminals needed — the CLI handles all parallelism internally.
 
 ## Requesting a PR per finding
 
+Always use **separate branches with individual PRs** rather than pushing fixes directly to main. This means:
+
+- Each fix is independently reviewable — you can see exactly what changed and why
+- You can merge the easy/safe fixes immediately without waiting for harder ones
+- If a fix introduces a regression you can revert just that PR without touching others
+- If you disagree with a fix you can close that PR without affecting the others
+- CI runs independently on each — a failing test in one does not block the rest
+- The git log stays clean — every security commit is traceable to a specific CWE
+
 After the findings table is produced, run this follow-up in the same session:
 
 ```
 For each HIGH and MEDIUM finding in the consolidated table, create a
-separate git branch and PR. For each one:
-1. Create branch named security/fix-<cwe>-<short-description>
-2. Implement the fix
-3. Run all three CLAUDE.md gates (golangci-lint, go test, gosec)
-   and show gate output before committing
-4. Commit using the `security` conventional commit type
-5. Push and open a PR against main with the finding details
-   (file, line, CWE, severity) in the PR body
-Work through them one at a time.
+separate branch and PR — one at a time. After opening each PR, pause
+and wait for me to review and merge it before starting the next fix.
+Use branch naming security/fix-<cwe>-<short-description>, run all
+three CLAUDE.md gates before committing, use the security commit type,
+and include the finding details (file, line, CWE, severity, suggested fix)
+in the PR body. Start with the highest severity finding.
 ```
 
-Claude Code will branch → fix → run gates → commit → push → open PR for each finding in sequence.
+Claude Code will branch → fix → run gates → commit → push → open PR, then pause for your review before moving to the next finding.
 
 **Gate behaviour:**
 - HIGH findings block the commit — must be fixed before proceeding
@@ -196,8 +202,13 @@ Then paste:
 
 ```
 Here are the security findings from a review of this codebase.
-For each HIGH and MEDIUM finding, create a separate branch and PR
-following the CLAUDE.md gates and commit format.
+For each HIGH and MEDIUM finding, create a separate branch and PR —
+one at a time. After opening each PR, pause and wait for me to review
+and merge it before starting the next fix. Use branch naming
+security/fix-<cwe>-<short-description>, run all three CLAUDE.md gates
+before committing, use the security commit type, and include the finding
+details (file, line, CWE, severity, suggested fix) in the PR body.
+Start with the highest severity finding.
 
 [paste findings table]
 ```
