@@ -33,11 +33,14 @@ var httpClient = &http.Client{
 		if len(via) >= 5 {
 			return fmt.Errorf("too many redirects")
 		}
-		// Validate each redirect target so an open redirect cannot point to a
-		// private address (DNS check runs; dial-time guard catches rebinding).
-		if err := ValidateFeedURL(req.URL.String()); err != nil {
-			return fmt.Errorf("redirect blocked: %w", err)
+		// Block non-http(s) redirect targets (javascript:, file:, data:, etc.).
+		// Private-IP protection is handled by safeDialContext at connection time,
+		// which avoids false positives from pre-dial DNS lookups on CDN hostnames.
+		scheme := req.URL.Scheme
+		if scheme != "http" && scheme != "https" {
+			return fmt.Errorf("redirect blocked: scheme %q not allowed", scheme)
 		}
+		slog.Debug("following redirect", "url", req.URL.String(), "hop", len(via))
 		return nil
 	},
 }
