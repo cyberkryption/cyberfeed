@@ -34,7 +34,7 @@ func SeedFeedConfigs(db *sql.DB, feeds []fetcher.FeedConfig) error {
 	if err != nil {
 		return fmt.Errorf("prepare seed: %w", err)
 	}
-	defer stmt.Close()
+	defer stmt.Close() //nolint:errcheck
 
 	for _, f := range feeds {
 		if _, err := stmt.Exec(f.Name, f.URL); err != nil {
@@ -50,7 +50,7 @@ func GetFeedConfigs(db *sql.DB) ([]FeedConfigRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query feed configs: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var configs []FeedConfigRow
 	for rows.Next() {
@@ -74,7 +74,7 @@ func GetEnabledFeedConfigs(db *sql.DB) ([]fetcher.FeedConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query enabled feed configs: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var configs []fetcher.FeedConfig
 	for rows.Next() {

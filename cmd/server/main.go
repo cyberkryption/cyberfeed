@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -41,7 +42,7 @@ func main() {
 	var logDest io.Writer = os.Stdout
 	if logWriter != nil {
 		logDest = io.MultiWriter(os.Stdout, logWriter)
-		defer logWriter.Close()
+		defer logWriter.Close() //nolint:errcheck
 	}
 
 	logger := slog.New(slog.NewTextHandler(logDest, &slog.HandlerOptions{
@@ -75,7 +76,7 @@ func main() {
 		logger.Error("could not open store — cannot start without a database", "path", dbPath, "error", err)
 		os.Exit(1)
 	}
-	defer st.Close()
+	defer st.Close() //nolint:errcheck
 	logger.Info("store opened", "path", dbPath)
 
 	db := st.DB()
@@ -180,18 +181,32 @@ func main() {
 		logger.Warn("could not open audit log — security events will not be recorded",
 			"path", auditPath, "error", err)
 	} else {
-		defer auditLog.Close()
+		defer auditLog.Close() //nolint:errcheck
 		logger.Info("audit log opened", "path", auditPath)
 	}
 
 	agg := aggregator.New(feeds, logger, st)
 	go agg.StartAutoRefresh(ctx, 20*time.Minute)
 
+	// CYBERFEED_TRUSTED_PROXIES is an optional comma-separated list of CIDR
+	// blocks for trusted reverse proxies (e.g. "127.0.0.1/8,::1/128").
+	// When set, X-Forwarded-For is consulted for requests from those CIDRs
+	// so that per-IP rate limiting works correctly behind Nginx/Caddy.
+	var trustedProxyCIDRs []string
+	if raw := os.Getenv("CYBERFEED_TRUSTED_PROXIES"); raw != "" {
+		for _, cidr := range strings.Split(raw, ",") {
+			if cidr = strings.TrimSpace(cidr); cidr != "" {
+				trustedProxyCIDRs = append(trustedProxyCIDRs, cidr)
+			}
+		}
+	}
+
 	srv, err := server.New(server.Config{
-		Addr:     ":8888",
-		Logger:   logger,
-		DB:       db,
-		AuditLog: auditLog,
+		Addr:              ":8888",
+		Logger:            logger,
+		DB:                db,
+		AuditLog:          auditLog,
+		TrustedProxyCIDRs: trustedProxyCIDRs,
 	}, agg, staticFS)
 	if err != nil {
 		logger.Error("create server", "error", err)
