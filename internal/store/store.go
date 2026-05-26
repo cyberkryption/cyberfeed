@@ -111,7 +111,7 @@ func (s *Store) SaveSnapshot(items []fetcher.FeedItem, sources []SourceRecord, u
 	if err != nil {
 		return fmt.Errorf("prepare item insert: %w", err)
 	}
-	defer itemStmt.Close()
+	defer itemStmt.Close() //nolint:errcheck
 
 	for _, item := range items {
 		cats, _ := json.Marshal(item.Categories)
@@ -133,7 +133,7 @@ func (s *Store) SaveSnapshot(items []fetcher.FeedItem, sources []SourceRecord, u
 	if err != nil {
 		return fmt.Errorf("prepare source insert: %w", err)
 	}
-	defer srcStmt.Close()
+	defer srcStmt.Close() //nolint:errcheck
 
 	for _, src := range sources {
 		if _, err := srcStmt.Exec(
@@ -171,7 +171,7 @@ func (s *Store) LoadSnapshot() ([]fetcher.FeedItem, []SourceRecord, time.Time, e
 	if err != nil {
 		return nil, nil, time.Time{}, fmt.Errorf("query items: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var items []fetcher.FeedItem
 	for rows.Next() {
@@ -197,7 +197,7 @@ func (s *Store) LoadSnapshot() ([]fetcher.FeedItem, []SourceRecord, time.Time, e
 	if err != nil {
 		return nil, nil, time.Time{}, fmt.Errorf("query sources: %w", err)
 	}
-	defer srows.Close()
+	defer srows.Close() //nolint:errcheck
 
 	var sources []SourceRecord
 	for srows.Next() {

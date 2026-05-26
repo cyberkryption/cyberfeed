@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"sync"
@@ -533,8 +534,9 @@ func securityHeaders(next http.Handler) http.Handler {
 
 // apiMiddleware sets JSON content-type, cache-control, and same-origin CORS headers.
 // The SPA and API are co-hosted so cross-origin requests are not expected;
-// the Origin is echoed back only when it matches the request Host, which
-// preserves preflight support for local dev proxies without opening a wildcard.
+// the Origin is echoed back only when its host component is an exact match for
+// r.Host. Previously strings.HasSuffix was used, which allows suffix-match
+// bypasses: "evilexample.com" passes when Host="example.com".
 func apiMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Prevent API responses (including auth/session data) from being stored
@@ -542,9 +544,10 @@ func apiMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 
 		if origin := r.Header.Get("Origin"); origin != "" {
-			// Allow the origin only when it is the same host as the server.
-			// r.Host is the value of the Host header (or the server address).
-			if strings.HasSuffix(origin, r.Host) {
+			// Parse the Origin header and compare its host component exactly against
+			// r.Host. This prevents suffix-match bypasses and is the correct
+			// same-origin check per RFC 6454.
+			if parsed, err := url.Parse(origin); err == nil && parsed.Host == r.Host {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, PATCH, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
