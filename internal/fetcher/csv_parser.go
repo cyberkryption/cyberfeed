@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -150,6 +151,9 @@ func buildC2Item(sourceName, sourceURL string, colIdx map[string]int, row []stri
 }
 
 func vtIPURL(ip string) string {
+	if net.ParseIP(ip) == nil {
+		return ""
+	}
 	return "https://www.virustotal.com/gui/ip-address/" + url.PathEscape(ip)
 }
 
