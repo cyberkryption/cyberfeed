@@ -94,8 +94,10 @@ func fetchJSON(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 			return nil, fmt.Errorf("fetch %s failed and no local cache available: %w", cfg.Name, err)
 		}
 	} else {
-		if mkErr := os.MkdirAll(csvCacheDir, 0o755); mkErr == nil {
-			_ = os.WriteFile(cachePath, body, 0o644)
+		if mkErr := os.MkdirAll(csvCacheDir, 0o750); mkErr == nil {
+			if wErr := os.WriteFile(cachePath, body, 0o600); wErr != nil {
+				slog.Warn("failed to cache JSON feed", "feed", cfg.Name, "path", cachePath, "error", wErr)
+			}
 		}
 	}
 
@@ -152,8 +154,10 @@ func fetchCSV(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 		body = cached
 	} else {
 		// Persist fresh copy (best-effort; failures are non-fatal).
-		if mkErr := os.MkdirAll(csvCacheDir, 0o755); mkErr == nil {
-			_ = os.WriteFile(cachePath, body, 0o644)
+		if mkErr := os.MkdirAll(csvCacheDir, 0o750); mkErr == nil {
+			if wErr := os.WriteFile(cachePath, body, 0o600); wErr != nil {
+				slog.Warn("failed to cache CSV feed", "feed", cfg.Name, "path", cachePath, "error", wErr)
+			}
 		}
 	}
 
