@@ -4,6 +4,7 @@ import {
 } from '@mantine/core'
 import { IconExternalLink, IconCalendar, IconUser, IconTag, IconEye, IconEyeOff } from '@tabler/icons-react'
 import type { FeedItem } from '../types'
+import { safeHref } from '../types'
 
 interface FeedCardProps {
   item: FeedItem
@@ -141,7 +142,7 @@ export function FeedCard({ item, searchQuery, isRead, onToggleRead, onMarkRead }
 
         {/* Title */}
         <Anchor
-          href={item.link}
+          href={safeHref(item.link)}
           target="_blank"
           rel="noopener noreferrer"
           underline="never"

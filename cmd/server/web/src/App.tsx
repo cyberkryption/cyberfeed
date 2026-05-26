@@ -23,6 +23,7 @@ import { useWatchlist } from './hooks/useWatchlist'
 import { useWatchlistAlerts } from './hooks/useWatchlistAlerts'
 import { ALL_CHARTS } from './charts'
 import type { FeedItem } from './types'
+import { safeHref } from './types'
 
 const StatsPanel = lazy(() => import('./components/StatsPanel'))
 
@@ -266,7 +267,7 @@ function FeedApp({ username, onLogout }: FeedAppProps) {
                     <Text
                       size="xs"
                       component="a"
-                      href={alert.item.link}
+                      href={safeHref(alert.item.link)}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}

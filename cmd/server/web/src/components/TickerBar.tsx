@@ -1,6 +1,7 @@
 import { useComputedColorScheme, Box, Text } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import type { FeedItem } from '../types'
+import { safeHref } from '../types'
 
 interface TickerBarProps {
   items: FeedItem[]
@@ -82,7 +83,7 @@ export function TickerBar({ items, tickerSpeed }: TickerBarProps) {
             <span key={`${item.link}-${i}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
               <Text
                 component="a"
-                href={item.link || '#'}
+                href={safeHref(item.link) ?? '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 size="sm"
