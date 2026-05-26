@@ -97,7 +97,7 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 
 	s.http = &http.Server{
 		Addr:         cfg.Addr,
-		Handler:      securityHeaders(s.mux),
+		Handler:      s.securityHeaders(s.mux),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 60 * time.Second, // manual refresh can take ~15-20 s with all feeds in parallel
 		IdleTimeout:  60 * time.Second,
@@ -180,7 +180,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	s.limiter.RecordSuccess(ip)
 	s.audit(audit.EventLoginSuccess, map[string]any{"ip": ip, "username": req.Username})
-	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+	secure := s.isSecure(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
@@ -202,7 +202,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		_ = auth.Logout(s.db, cookie.Value)
 	}
 	s.audit(audit.EventLogout, map[string]any{"ip": ip, "username": username})
-	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+	secure := s.isSecure(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    "",
@@ -276,7 +276,7 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	s.audit(audit.EventPasswordChanged, map[string]any{"ip": ip, "username": username})
 	// Clear the session cookie — the session was just deleted server-side.
-	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+	secure := s.isSecure(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    "",
@@ -508,7 +508,7 @@ func (s *Server) unauthorized(w http.ResponseWriter) {
 // securityHeaders adds standard HTTP security headers to every response.
 // It wraps the top-level mux so both API and SPA routes are covered.
 // HSTS is only sent when the connection is TLS (direct or via a trusted proxy).
-func securityHeaders(next http.Handler) http.Handler {
+func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	// Content-Security-Policy notes:
 	//   • script-src 'self'          — all JS is bundled and served from the same origin
 	//   • style-src 'self' 'unsafe-inline' — Mantine injects small inline style blocks
@@ -533,11 +533,39 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		// HSTS: only meaningful over TLS. Honour X-Forwarded-Proto for deployments
 		// behind a TLS-terminating reverse proxy (nginx, Caddy, etc.).
-		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		if s.isSecure(r) {
 			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// isSecure reports whether the request arrived over TLS, either directly
+// (r.TLS != nil) or via a trusted reverse proxy that set X-Forwarded-Proto.
+// Untrusted clients cannot spoof the header to influence cookie Secure flags
+// or HSTS headers.
+func (s *Server) isSecure(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	if r.Header.Get("X-Forwarded-Proto") != "https" {
+		return false
+	}
+	// Only honour the header when the request originates from a trusted proxy.
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	for _, block := range s.trustedProxies {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // apiMiddleware sets JSON content-type, cache-control, and same-origin CORS headers.
