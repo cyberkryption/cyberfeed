@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -187,11 +188,25 @@ func main() {
 	agg := aggregator.New(feeds, logger, st)
 	go agg.StartAutoRefresh(ctx, 20*time.Minute)
 
+	// CYBERFEED_TRUSTED_PROXIES is an optional comma-separated list of CIDR
+	// blocks for trusted reverse proxies (e.g. "127.0.0.1/8,::1/128").
+	// When set, X-Forwarded-For is consulted for requests from those CIDRs
+	// so that per-IP rate limiting works correctly behind Nginx/Caddy.
+	var trustedProxyCIDRs []string
+	if raw := os.Getenv("CYBERFEED_TRUSTED_PROXIES"); raw != "" {
+		for _, cidr := range strings.Split(raw, ",") {
+			if cidr = strings.TrimSpace(cidr); cidr != "" {
+				trustedProxyCIDRs = append(trustedProxyCIDRs, cidr)
+			}
+		}
+	}
+
 	srv, err := server.New(server.Config{
-		Addr:     ":8888",
-		Logger:   logger,
-		DB:       db,
-		AuditLog: auditLog,
+		Addr:              ":8888",
+		Logger:            logger,
+		DB:                db,
+		AuditLog:          auditLog,
+		TrustedProxyCIDRs: trustedProxyCIDRs,
 	}, agg, staticFS)
 	if err != nil {
 		logger.Error("create server", "error", err)

@@ -1,8 +1,10 @@
 package auth
 
 import (
+	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -94,13 +96,87 @@ func (l *LoginLimiter) entry(ip string) *ipEntry {
 	return e
 }
 
-// ClientIP extracts the remote IP address from a request, stripping the port.
-// It does not trust X-Forwarded-For to avoid spoofing when no trusted proxy
-// sits in front of the server.
-func ClientIP(r *http.Request) string {
+// ParseTrustedProxies parses a slice of CIDR strings into *net.IPNet values.
+// Returns an error if any CIDR is malformed.
+func ParseTrustedProxies(cidrs []string) ([]*net.IPNet, error) {
+	out := make([]*net.IPNet, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		_, block, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid trusted proxy CIDR %q: %w", cidr, err)
+		}
+		out = append(out, block)
+	}
+	return out, nil
+}
+
+// ClientIP returns the real client IP address. When trusted is non-empty and
+// the direct connection comes from one of those CIDRs, the leftmost publicly
+// routable IP in X-Forwarded-For is used instead of r.RemoteAddr, preventing
+// the rate limiter from collapsing all clients to the proxy's address.
+//
+// When no trusted proxies are configured, r.RemoteAddr is always used to
+// prevent X-Forwarded-For spoofing by untrusted clients.
+func ClientIP(r *http.Request, trusted []*net.IPNet) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
 	}
+
+	if len(trusted) == 0 {
+		return host
+	}
+
+	remoteIP := net.ParseIP(host)
+	if remoteIP == nil || !inCIDRList(remoteIP, trusted) {
+		return host
+	}
+
+	// Connection is from a trusted proxy — read X-Forwarded-For and return
+	// the leftmost non-private IP (the actual client address).
+	xff := r.Header.Get("X-Forwarded-For")
+	for _, part := range strings.Split(xff, ",") {
+		ip := net.ParseIP(strings.TrimSpace(part))
+		if ip != nil && !isRFC1918OrLoopback(ip) {
+			return ip.String()
+		}
+	}
+
 	return host
+}
+
+func inCIDRList(ip net.IP, cidrs []*net.IPNet) bool {
+	for _, cidr := range cidrs {
+		if cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// isRFC1918OrLoopback reports whether ip is a private or loopback address.
+// Used to skip non-routable addresses in the X-Forwarded-For chain.
+var privateBlocks []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+		"127.0.0.0/8", "169.254.0.0/16",
+		"::1/128", "fc00::/7", "fe80::/10",
+	} {
+		_, block, err := net.ParseCIDR(cidr)
+		if err == nil {
+			privateBlocks = append(privateBlocks, block)
+		}
+	}
+}
+
+func isRFC1918OrLoopback(ip net.IP) bool {
+	ip = ip.To16()
+	for _, block := range privateBlocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }

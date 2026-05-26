@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -27,10 +28,11 @@ const usernameCtxKey contextKey = "username"
 
 // Config holds server configuration.
 type Config struct {
-	Addr     string
-	Logger   *slog.Logger
-	DB       *sql.DB       // required — used for session validation
-	AuditLog *audit.Logger // optional — nil disables audit logging
+	Addr              string
+	Logger            *slog.Logger
+	DB                *sql.DB       // required — used for session validation
+	AuditLog          *audit.Logger // optional — nil disables audit logging
+	TrustedProxyCIDRs []string      // optional — CIDRs of trusted reverse proxies for X-Forwarded-For
 }
 
 // maxRequestBodyBytes caps the size of any API request body to prevent
@@ -42,13 +44,14 @@ const minRefreshInterval = 30 * time.Second
 
 // Server wraps the HTTP server and its dependencies.
 type Server struct {
-	cfg              Config
-	agg              *aggregator.Aggregator
-	db               *sql.DB
-	limiter          *auth.LoginLimiter
-	mux              *http.ServeMux
-	http             *http.Server
-	refreshMu        sync.Mutex
+	cfg               Config
+	agg               *aggregator.Aggregator
+	db                *sql.DB
+	limiter           *auth.LoginLimiter
+	trustedProxies    []*net.IPNet
+	mux               *http.ServeMux
+	http              *http.Server
+	refreshMu         sync.Mutex
 	lastManualRefresh time.Time
 }
 
@@ -57,12 +60,17 @@ func New(cfg Config, agg *aggregator.Aggregator, staticFS fs.FS) (*Server, error
 	if cfg.DB == nil {
 		return nil, fmt.Errorf("server.Config.DB must not be nil")
 	}
+	trusted, err := auth.ParseTrustedProxies(cfg.TrustedProxyCIDRs)
+	if err != nil {
+		return nil, fmt.Errorf("server.Config.TrustedProxyCIDRs: %w", err)
+	}
 	s := &Server{
-		cfg:     cfg,
-		agg:     agg,
-		db:      cfg.DB,
-		limiter: auth.NewLoginLimiter(),
-		mux:     http.NewServeMux(),
+		cfg:            cfg,
+		agg:            agg,
+		db:             cfg.DB,
+		limiter:        auth.NewLoginLimiter(),
+		trustedProxies: trusted,
+		mux:            http.NewServeMux(),
 	}
 
 	// Auth endpoints — all three are unprotected at the transport level.
@@ -138,7 +146,7 @@ func (s *Server) audit(event string, fields map[string]any) {
 // ── Auth handlers ────────────────────────────────────────────────────────────
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	ip := auth.ClientIP(r)
+	ip := auth.ClientIP(r, s.trustedProxies)
 
 	if ok, retryAfter := s.limiter.Allow(ip); !ok {
 		secs := int(retryAfter.Seconds()) + 1
@@ -186,7 +194,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	ip := auth.ClientIP(r)
+	ip := auth.ClientIP(r, s.trustedProxies)
 	var username string
 	if cookie, err := r.Cookie(auth.CookieName); err == nil {
 		// Resolve username before the session is deleted.
@@ -253,7 +261,7 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := auth.ClientIP(r)
+	ip := auth.ClientIP(r, s.trustedProxies)
 	if err := auth.VerifyPassword(s.db, username, req.CurrentPassword); err != nil {
 		s.audit(audit.EventPasswordChangeFail, map[string]any{"ip": ip, "username": username})
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "current password is incorrect"})
@@ -308,7 +316,7 @@ func (s *Server) handleAdminListFeeds(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
-	ip := auth.ClientIP(r)
+	ip := auth.ClientIP(r, s.trustedProxies)
 	username, _ := r.Context().Value(usernameCtxKey).(string)
 
 	var req struct {
@@ -380,7 +388,7 @@ func (s *Server) handleAdminDeleteFeed(w http.ResponseWriter, r *http.Request) {
 	}
 	username, _ := r.Context().Value(usernameCtxKey).(string)
 	s.audit(audit.EventFeedDeleted, map[string]any{
-		"ip": auth.ClientIP(r), "username": username, "feed_name": name,
+		"ip": auth.ClientIP(r, s.trustedProxies), "username": username, "feed_name": name,
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
@@ -412,7 +420,7 @@ func (s *Server) handleAdminSetFeedEnabled(w http.ResponseWriter, r *http.Reques
 		}
 		username, _ := r.Context().Value(usernameCtxKey).(string)
 		s.audit(audit.EventFeedToggled, map[string]any{
-			"ip": auth.ClientIP(r), "username": username,
+			"ip": auth.ClientIP(r, s.trustedProxies), "username": username,
 			"feed_name": name, "enabled": *req.Enabled,
 		})
 	}
@@ -463,7 +471,7 @@ func (s *Server) handleAdminRefresh(w http.ResponseWriter, r *http.Request) {
 // request context. Returns 401 if the cookie is missing or invalid.
 func (s *Server) requireSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := auth.ClientIP(r)
+		ip := auth.ClientIP(r, s.trustedProxies)
 		cookie, err := r.Cookie(auth.CookieName)
 		if err != nil {
 			s.audit(audit.EventSessionRejected, map[string]any{
