@@ -175,7 +175,7 @@ func httpGet(ctx context.Context, url string, limit int64, timeout time.Duration
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("unexpected HTTP status %d", resp.StatusCode)
