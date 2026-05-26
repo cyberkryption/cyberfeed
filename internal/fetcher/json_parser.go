@@ -118,8 +118,8 @@ func buildJSONItem(sourceName, sourceURL string, rec map[string]any, now time.Ti
 	} else if domain != "" {
 		link = vtDomainURL(domain)
 	} else {
-		// No useful indicator — use source URL + title as a stable fallback key.
-		link = sourceURL + "#" + title
+		// No useful indicator — use source URL as a stable fallback link.
+		link = sourceURL
 	}
 
 	// Description: C2Url(s), ASN info, and any explicit description/ioc field.
@@ -171,9 +171,9 @@ func buildJSONItem(sourceName, sourceURL string, rec map[string]any, now time.Ti
 	return &FeedItem{
 		Source:      sourceName,
 		SourceURL:   sourceURL,
-		Title:       title,
+		Title:       cleanText(title),
 		Link:        link,
-		Description: description,
+		Description: cleanHTML(description),
 		Published:   published,
 		Author:      "C2IntelFeeds",
 		Categories:  categories,
