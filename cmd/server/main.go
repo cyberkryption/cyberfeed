@@ -58,14 +58,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	feeds, err := fetcher.LoadFeedsFile("feeds.txt")
-	if err != nil {
-		logger.Warn("could not load feeds.txt, using built-in defaults", "error", err)
-		feeds = fetcher.DefaultFeeds
-	} else {
-		logger.Info("loaded feeds from feeds.txt", "count", len(feeds))
-	}
-
 	// SQLite store is required — both feed persistence and auth use it.
 	dbPath := os.Getenv("CYBERFEED_DB")
 	if dbPath == "" {
@@ -87,18 +79,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Seed feed_configs from feeds.txt on first run (or if table is empty).
+	// Seed feed_configs from built-in defaults on first run (or if table is empty).
 	feedCount, err := store.CountFeedConfigs(db)
 	if err != nil {
 		logger.Error("count feed configs", "error", err)
 		os.Exit(1)
 	}
 	if feedCount == 0 {
-		if err := store.SeedFeedConfigs(db, feeds); err != nil {
+		if err := store.SeedFeedConfigs(db, fetcher.DefaultFeeds); err != nil {
 			logger.Error("seed feed configs", "error", err)
 			os.Exit(1)
 		}
-		logger.Info("seeded feed configs", "count", len(feeds))
+		logger.Info("seeded feed configs", "count", len(fetcher.DefaultFeeds))
 	}
 
 	count, err := auth.UserCount(db)
@@ -185,7 +177,7 @@ func main() {
 		logger.Info("audit log opened", "path", auditPath)
 	}
 
-	agg := aggregator.New(feeds, logger, st)
+	agg := aggregator.New(logger, st)
 	go agg.StartAutoRefresh(ctx, 20*time.Minute)
 
 	// CYBERFEED_TRUSTED_PROXIES is an optional comma-separated list of CIDR
