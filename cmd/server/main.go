@@ -41,7 +41,7 @@ func main() {
 	var logDest io.Writer = os.Stdout
 	if logWriter != nil {
 		logDest = io.MultiWriter(os.Stdout, logWriter)
-		defer logWriter.Close()
+		defer logWriter.Close() //nolint:errcheck
 	}
 
 	logger := slog.New(slog.NewTextHandler(logDest, &slog.HandlerOptions{
@@ -75,7 +75,7 @@ func main() {
 		logger.Error("could not open store — cannot start without a database", "path", dbPath, "error", err)
 		os.Exit(1)
 	}
-	defer st.Close()
+	defer st.Close() //nolint:errcheck
 	logger.Info("store opened", "path", dbPath)
 
 	db := st.DB()
@@ -180,7 +180,7 @@ func main() {
 		logger.Warn("could not open audit log — security events will not be recorded",
 			"path", auditPath, "error", err)
 	} else {
-		defer auditLog.Close()
+		defer auditLog.Close() //nolint:errcheck
 		logger.Info("audit log opened", "path", auditPath)
 	}
 
