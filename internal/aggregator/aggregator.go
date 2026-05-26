@@ -35,7 +35,6 @@ type Snapshot struct {
 
 // Aggregator owns the worker pool and the cached snapshot.
 type Aggregator struct {
-	feeds     []fetcher.FeedConfig
 	logger    *slog.Logger
 	store     *store.Store
 	mu        sync.RWMutex
@@ -44,10 +43,9 @@ type Aggregator struct {
 	failCount map[string]int       // consecutive failure count per feed name
 }
 
-// New creates an Aggregator for the given feeds. st may be nil to disable persistence.
-func New(feeds []fetcher.FeedConfig, logger *slog.Logger, st *store.Store) *Aggregator {
+// New creates an Aggregator. st may be nil to disable persistence.
+func New(logger *slog.Logger, st *store.Store) *Aggregator {
 	a := &Aggregator{
-		feeds:     feeds,
 		logger:    logger,
 		store:     st,
 		lastFetch: make(map[string]time.Time),
@@ -98,14 +96,14 @@ func (a *Aggregator) Snapshot() Snapshot {
 }
 
 // activeFeeds returns the current feed list from the DB, falling back to the
-// static default list when the store is unavailable or empty.
+// compiled-in defaults when the store is unavailable or empty.
 func (a *Aggregator) activeFeeds() []fetcher.FeedConfig {
 	if a.store != nil {
 		if dynamic, err := store.GetEnabledFeedConfigs(a.store.DB()); err == nil && len(dynamic) > 0 {
 			return dynamic
 		}
 	}
-	return a.feeds
+	return fetcher.DefaultFeeds
 }
 
 // fetchFeeds spawns one goroutine per feed, collects results, and returns the
