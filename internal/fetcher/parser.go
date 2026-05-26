@@ -216,9 +216,11 @@ func cleanEach(ss []string) []string {
 func cleanHTML(s string) string {
 	s = strings.TrimSpace(s)
 
-	// Unwrap bare CDATA that wasn't parsed as XML.
-	s = strings.TrimPrefix(s, "<![CDATA[")
-	s = strings.TrimSuffix(s, "]]>")
+	// Strip all CDATA wrappers that weren't consumed by the XML parser.
+	// ReplaceAll handles nested/multiple occurrences; TrimPrefix/TrimSuffix
+	// would only remove one layer, leaving inner markers intact.
+	s = strings.ReplaceAll(s, "<![CDATA[", "")
+	s = strings.ReplaceAll(s, "]]>", "")
 
 	result := stripHTML.Sanitize(s)
 	result = html.UnescapeString(result)
