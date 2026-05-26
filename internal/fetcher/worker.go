@@ -7,7 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -197,10 +199,15 @@ func isCSVURL(u string) bool {
 	return strings.HasSuffix(lower, ".csv")
 }
 
-// csvFilename extracts the bare filename from a URL path.
+// csvFilename derives a safe cache filename from a feed URL.
+// It parses the URL, takes the base name of the URL path (so query strings,
+// fragments, and path traversal components are stripped), and falls back to
+// "feed.csv" for any URL that does not yield a usable filename.
 func csvFilename(u string) string {
-	if i := strings.LastIndexByte(u, '/'); i >= 0 && i < len(u)-1 {
-		return u[i+1:]
+	if parsed, err := url.Parse(u); err == nil {
+		if base := path.Base(parsed.Path); base != "" && base != "." && base != ".." {
+			return base
+		}
 	}
 	return "feed.csv"
 }
