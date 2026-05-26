@@ -140,9 +140,9 @@ func buildC2Item(sourceName, sourceURL string, colIdx map[string]int, row []stri
 	return &FeedItem{
 		Source:      sourceName,
 		SourceURL:   sourceURL,
-		Title:       title,
+		Title:       cleanText(title),
 		Link:        link,
-		Description: description,
+		Description: cleanHTML(description),
 		Published:   now,
 		Author:      "C2IntelFeeds",
 		Categories:  categories,
