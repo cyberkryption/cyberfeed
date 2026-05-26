@@ -121,7 +121,7 @@ func parseRSS(data []byte, cfg FeedConfig) ([]FeedItem, error) {
 			Description: cleanHTML(desc),
 			Published:   pub,
 			Author:      cleanText(author),
-			Categories:  ri.Categories,
+			Categories:  cleanEach(ri.Categories),
 		})
 	}
 	return items, nil
@@ -159,7 +159,7 @@ func parseAtom(data []byte, cfg FeedConfig) ([]FeedItem, error) {
 		cats := make([]string, 0, len(e.Categories))
 		for _, c := range e.Categories {
 			if c.Term != "" {
-				cats = append(cats, c.Term)
+				cats = append(cats, cleanText(c.Term))
 			}
 		}
 		items = append(items, FeedItem{
@@ -200,6 +200,15 @@ func parseDate(s string) time.Time {
 // cleanText decodes HTML entities and trims whitespace.
 func cleanText(s string) string {
 	return strings.TrimSpace(html.UnescapeString(s))
+}
+
+// cleanEach applies cleanText to every element of a string slice.
+func cleanEach(ss []string) []string {
+	out := make([]string, len(ss))
+	for i, s := range ss {
+		out[i] = cleanText(s)
+	}
+	return out
 }
 
 // cleanHTML strips all HTML tags via bluemonday's strict policy, then decodes
