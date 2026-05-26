@@ -154,7 +154,7 @@ func parseAtom(data []byte, cfg FeedConfig) ([]FeedItem, error) {
 			desc = e.Content.Value
 		}
 		if desc == "" {
-			desc = e.Summary.Inner
+			desc = e.Content.Inner
 		}
 		cats := make([]string, 0, len(e.Categories))
 		for _, c := range e.Categories {
