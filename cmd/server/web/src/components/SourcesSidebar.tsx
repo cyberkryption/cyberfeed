@@ -4,6 +4,7 @@ import {
 } from '@mantine/core'
 import { IconCircleCheck, IconCircleX, IconExternalLink, IconAlertTriangle } from '@tabler/icons-react'
 import type { FeedStatus } from '../types'
+import { safeHref } from '../types'
 
 const ALERT_THRESHOLD = 3
 
@@ -130,7 +131,7 @@ function SourceSection({ label, sources, selectedSource, onSelectSource, isDark 
                 <Tooltip label="Open feed URL" position="right">
                   <Box
                     component="a"
-                    href={source.url}
+                    href={safeHref(source.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}

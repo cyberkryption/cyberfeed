@@ -6,6 +6,7 @@ import {
 } from '@mantine/core'
 import { IconTrash, IconPlus, IconAlertTriangle, IconRefresh } from '@tabler/icons-react'
 import { useFeedAdmin } from '../hooks/useFeedAdmin'
+import { safeHref } from '../types'
 
 interface FeedAdminModalProps {
   opened: boolean
@@ -195,7 +196,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                         size="xs"
                         c="dimmed"
                         component="a"
-                        href={feed.url}
+                        href={safeHref(feed.url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
