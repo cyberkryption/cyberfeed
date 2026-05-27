@@ -209,6 +209,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged out"})
@@ -232,6 +233,8 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 			Value:    "",
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   s.isSecure(r),
+			SameSite: http.SameSiteStrictMode,
 			MaxAge:   -1,
 		})
 		writeJSON(w, http.StatusOK, meResponse{})
@@ -276,13 +279,13 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	s.audit(audit.EventPasswordChanged, map[string]any{"ip": ip, "username": username})
 	// Clear the session cookie — the session was just deleted server-side.
-	secure := s.isSecure(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   secure,
+		Secure:   s.isSecure(r),
+		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})
 	s.cfg.Logger.Info("password changed — all sessions invalidated", "username", username)
@@ -491,6 +494,8 @@ func (s *Server) requireSession(next http.Handler) http.Handler {
 				Value:    "",
 				Path:     "/",
 				HttpOnly: true,
+				Secure:   s.isSecure(r),
+				SameSite: http.SameSiteStrictMode,
 				MaxAge:   -1,
 			})
 			s.unauthorized(w)
