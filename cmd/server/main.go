@@ -41,6 +41,13 @@ func safeGo(logger *slog.Logger, name string, f func()) {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+// run is the real entry point. Returning an int (rather than calling os.Exit
+// directly from main) ensures all deferred closers fire before the process
+// terminates, preventing data loss in SQLite, log files, and the audit log.
+func run() int {
 	// Set up daily-rotating log files in ./logs, keeping 7 days.
 	logDir := os.Getenv("CYBERFEED_LOG_DIR")
 	if logDir == "" {
@@ -68,7 +75,7 @@ func main() {
 	staticFS, err := fs.Sub(embeddedWeb, "web/dist")
 	if err != nil {
 		logger.Error("sub embedded fs", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	// SQLite store is required — both feed persistence and auth use it.
@@ -79,7 +86,7 @@ func main() {
 	st, err := store.Open(dbPath)
 	if err != nil {
 		logger.Error("could not open store — cannot start without a database", "path", dbPath, "error", err)
-		os.Exit(1)
+		return 1
 	}
 	defer st.Close() //nolint:errcheck
 	logger.Info("store opened", "path", dbPath)
@@ -89,19 +96,19 @@ func main() {
 	// Initialise auth schema and ensure at least one user exists.
 	if err := auth.InitSchema(db); err != nil {
 		logger.Error("init auth schema", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	// Seed feed_configs from built-in defaults on first run (or if table is empty).
 	feedCount, err := store.CountFeedConfigs(db)
 	if err != nil {
 		logger.Error("count feed configs", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	if feedCount == 0 {
 		if err := store.SeedFeedConfigs(db, fetcher.DefaultFeeds); err != nil {
 			logger.Error("seed feed configs", "error", err)
-			os.Exit(1)
+			return 1
 		}
 		logger.Info("seeded feed configs", "count", len(fetcher.DefaultFeeds))
 	}
@@ -109,7 +116,7 @@ func main() {
 	count, err := auth.UserCount(db)
 	if err != nil {
 		logger.Error("check user count", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	adminUser := os.Getenv("CYBERFEED_ADMIN_USERNAME")
@@ -141,11 +148,11 @@ func main() {
 			fmt.Fprintln(os.Stderr, "║  Optional: set CYBERFEED_ADMIN_USERNAME (default: admin) ║")
 			fmt.Fprintln(os.Stderr, "╚══════════════════════════════════════════════════════════╝")
 			fmt.Fprintln(os.Stderr, "")
-			os.Exit(1)
+			return 1
 		}
 		if err := auth.CreateUser(db, adminUser, adminPass); err != nil {
 			logger.Error("create admin user", "error", err)
-			os.Exit(1)
+			return 1
 		}
 		logger.Info("created admin user", "username", adminUser)
 	} else if adminPass != "" {
@@ -218,7 +225,7 @@ func main() {
 	}, agg, staticFS)
 	if err != nil {
 		logger.Error("create server", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	safeGo(logger, "limiter-pruner", func() { srv.StartLimiterPruner(ctx) })
@@ -241,6 +248,7 @@ func main() {
 		} else {
 			logger.Error("server stopped", "error", err)
 		}
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
