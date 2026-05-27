@@ -104,6 +104,9 @@ func main() {
 		adminUser = "admin"
 	}
 	adminPass := os.Getenv("CYBERFEED_ADMIN_PASSWORD")
+	// Remove from /proc/<pid>/environ immediately so other processes on the
+	// host cannot read the plaintext password after startup.
+	os.Unsetenv("CYBERFEED_ADMIN_PASSWORD") //nolint:errcheck
 
 	if count == 0 {
 		// First run: password is required.
