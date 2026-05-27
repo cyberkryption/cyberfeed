@@ -77,12 +77,14 @@ func (a *Aggregator) loadFromStore() {
 			Error:     r.Error,
 			OK:        r.OK,
 		}
+	}
+	a.mu.Lock()
+	for _, r := range records {
 		// Seed lastFetch so the scheduler doesn't re-fetch everything immediately on restart.
 		if !r.LastFetch.IsZero() {
 			a.lastFetch[r.Name] = r.LastFetch
 		}
 	}
-	a.mu.Lock()
 	a.snapshot = Snapshot{Items: items, Sources: statuses, UpdatedAt: updatedAt}
 	a.mu.Unlock()
 	a.logger.Info("loaded snapshot from store", "items", len(items), "sources", len(records))
