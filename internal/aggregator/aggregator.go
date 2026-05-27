@@ -148,6 +148,16 @@ func (a *Aggregator) fetchFeeds(ctx context.Context, feeds []fetcher.FeedConfig)
 			}
 			statuses = append(statuses, status)
 		case <-ctx.Done():
+			// Drain remaining in-flight workers in the background so they can
+			// exit cleanly once their context-cancelled requests complete.
+			// The channel is buffered to len(feeds) so workers never block on
+			// send; this goroutine just ensures the buffer is consumed and GC'd.
+			remaining := len(feeds) - len(statuses)
+			go func() {
+				for i := 0; i < remaining; i++ {
+					<-results
+				}
+			}()
 			return nil, nil, fmt.Errorf("refresh cancelled: %w", ctx.Err())
 		}
 	}
