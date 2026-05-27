@@ -87,7 +87,7 @@ func fetchJSON(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 
 	body, err := httpGet(ctx, cfg.URL, csvBodyLimit, csvFetchTimeout)
 	if err != nil {
-		if cached, cacheErr := os.ReadFile(cachePath); cacheErr == nil {
+		if cached, cacheErr := os.ReadFile(cachePath); cacheErr == nil { //nolint:gosec // G304: cachePath is constructed from a fixed dir and csvFilename(url), which uses url.Parse+path.Base to strip traversal — not user-controlled
 			slog.Warn("JSON fetch failed, using cached copy", "feed", cfg.Name, "error", err)
 			body = cached
 		} else {
@@ -146,7 +146,7 @@ func fetchCSV(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 	body, err := httpGet(ctx, cfg.URL, csvBodyLimit, csvFetchTimeout)
 	if err != nil {
 		// Fall back to locally cached copy when the remote is unavailable.
-		cached, cacheErr := os.ReadFile(cachePath)
+		cached, cacheErr := os.ReadFile(cachePath) //nolint:gosec // G304: cachePath is constructed from a fixed dir and csvFilename(url), which uses url.Parse+path.Base to strip traversal — not user-controlled
 		if cacheErr != nil {
 			return nil, fmt.Errorf("fetch %s failed and no local cache available: %w", cfg.Name, err)
 		}
