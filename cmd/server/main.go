@@ -27,6 +27,19 @@ import (
 //go:embed web/dist
 var embeddedWeb embed.FS
 
+// safeGo launches f in a goroutine with a deferred recover so that a panic
+// in a background goroutine is logged rather than crashing the process.
+func safeGo(logger *slog.Logger, name string, f func()) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error("goroutine panicked", "goroutine", name, "panic", r)
+			}
+		}()
+		f()
+	}()
+}
+
 func main() {
 	// Set up daily-rotating log files in ./logs, keeping 7 days.
 	logDir := os.Getenv("CYBERFEED_LOG_DIR")
@@ -150,7 +163,7 @@ func main() {
 	defer stop()
 
 	// Prune expired sessions every hour.
-	go func() {
+	safeGo(logger, "session-pruner", func() {
 		ticker := time.NewTicker(time.Hour)
 		defer ticker.Stop()
 		for {
@@ -163,7 +176,7 @@ func main() {
 				return
 			}
 		}
-	}()
+	})
 
 	// Open the NDJSON security-event audit log.
 	auditPath := os.Getenv("CYBERFEED_AUDIT_LOG")
@@ -181,7 +194,7 @@ func main() {
 	}
 
 	agg := aggregator.New(logger, st)
-	go agg.StartAutoRefresh(ctx, 20*time.Minute)
+	safeGo(logger, "auto-refresh", func() { agg.StartAutoRefresh(ctx, 20*time.Minute) })
 
 	// CYBERFEED_TRUSTED_PROXIES is an optional comma-separated list of CIDR
 	// blocks for trusted reverse proxies (e.g. "127.0.0.1/8,::1/128").
@@ -208,9 +221,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	go srv.StartLimiterPruner(ctx)
+	safeGo(logger, "limiter-pruner", func() { srv.StartLimiterPruner(ctx) })
 
-	go func() {
+	safeGo(logger, "shutdown", func() {
 		<-ctx.Done()
 		logger.Info("received shutdown signal, draining requests…")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -218,7 +231,7 @@ func main() {
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			logger.Error("shutdown error", "error", err)
 		}
-	}()
+	})
 
 	if err := srv.ListenAndServe(); err != nil {
 		var opErr *net.OpError
