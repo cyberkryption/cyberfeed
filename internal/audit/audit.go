@@ -8,6 +8,7 @@ package audit
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -37,7 +38,7 @@ type Logger struct {
 // New opens (or creates) the NDJSON audit log at path in append mode.
 // The file is created with mode 0600 so only the process owner can read it.
 func New(path string) (*Logger, error) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec // path is operator-supplied config, not user input
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +72,7 @@ func (l *Logger) Log(event string, fields map[string]any) {
 
 	data, err := json.Marshal(rec)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "audit: failed to marshal event %q: %v\n", event, err)
 		return
 	}
 	data = append(data, '\n')
