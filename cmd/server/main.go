@@ -200,8 +200,17 @@ func run() int {
 		logger.Info("audit log opened", "path", auditPath)
 	}
 
+	refreshInterval := 20 * time.Minute
+	if raw := os.Getenv("CYBERFEED_REFRESH_INTERVAL"); raw != "" {
+		if d, err := time.ParseDuration(raw); err == nil && d > 0 {
+			refreshInterval = d
+		} else {
+			logger.Warn("invalid CYBERFEED_REFRESH_INTERVAL, using default", "value", raw, "default", refreshInterval)
+		}
+	}
+
 	agg := aggregator.New(logger, st)
-	safeGo(logger, "auto-refresh", func() { agg.StartAutoRefresh(ctx, 20*time.Minute) })
+	safeGo(logger, "auto-refresh", func() { agg.StartAutoRefresh(ctx, refreshInterval) })
 
 	// CYBERFEED_TRUSTED_PROXIES is an optional comma-separated list of CIDR
 	// blocks for trusted reverse proxies (e.g. "127.0.0.1/8,::1/128").
@@ -216,8 +225,13 @@ func run() int {
 		}
 	}
 
+	addr := os.Getenv("CYBERFEED_ADDR")
+	if addr == "" {
+		addr = ":8888"
+	}
+
 	srv, err := server.New(server.Config{
-		Addr:              ":8888",
+		Addr:              addr,
 		Logger:            logger,
 		DB:                db,
 		AuditLog:          auditLog,
