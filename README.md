@@ -182,7 +182,7 @@ All configuration is via environment variables. Defaults are shown in parenthese
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CYBERFEED_ADDR` | `:8888` | Listen address |
+| `CYBERFEED_ADDR` | `127.0.0.1:8888` | Listen address — use `0.0.0.0:8888` to bind all interfaces or a specific IP such as `192.168.1.10:8888` |
 | `CYBERFEED_ADMIN_USERNAME` | `admin` | Admin username for first-run setup |
 | `CYBERFEED_ADMIN_PASSWORD` | _(required on first run)_ | Admin password; cleared from memory after startup |
 | `CYBERFEED_DB` | `cyberfeed.db` | SQLite database path |
