@@ -165,6 +165,7 @@ func (a *Aggregator) fetchFeeds(ctx context.Context, feeds []fetcher.FeedConfig)
 			// send; this goroutine just ensures the buffer is consumed and GC'd.
 			remaining := len(feeds) - len(statuses)
 			go func() {
+				defer func() { recover() }() //nolint:errcheck // drain-only goroutine; panics here are non-actionable
 				for i := 0; i < remaining; i++ {
 					<-results
 				}
