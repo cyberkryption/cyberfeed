@@ -197,9 +197,11 @@ func parseDate(s string) time.Time {
 	return time.Time{}
 }
 
-// cleanText decodes HTML entities and trims whitespace.
+// cleanText strips all HTML tags via bluemonday's strict policy, then decodes
+// HTML entities and trims whitespace. Applied to Title, Author, and Categories
+// so that all fields are sanitised consistently, not just Description.
 func cleanText(s string) string {
-	return strings.TrimSpace(html.UnescapeString(s))
+	return strings.TrimSpace(html.UnescapeString(stripHTML.Sanitize(s)))
 }
 
 // cleanEach applies cleanText to every element of a string slice.
