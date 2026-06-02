@@ -29,7 +29,7 @@ type Writer struct {
 // Writer ready to use. prefix is the base name; files are named
 // "<prefix>-YYYY-MM-DD.log".
 func New(dir, prefix string, maxDays int) (*Writer, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // G301: 0o755 is intentional — world-readable so log shippers and monitoring tools can traverse the directory
 		return nil, fmt.Errorf("logrotate: create dir %s: %w", dir, err)
 	}
 	w := &Writer{dir: dir, prefix: prefix, maxDays: maxDays}
@@ -70,7 +70,7 @@ func (w *Writer) Close() error {
 func (w *Writer) openDay(t time.Time) error {
 	day := t.Format(fileLayout)
 	name := filepath.Join(w.dir, fmt.Sprintf("%s-%s.log", w.prefix, day))
-	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644) //nolint:gosec // G304: name is filepath.Join(w.dir, fixed-format prefix+date+".log") — no user input reaches this path
 	if err != nil {
 		return fmt.Errorf("logrotate: open %s: %w", name, err)
 	}

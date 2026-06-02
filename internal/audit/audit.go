@@ -37,7 +37,7 @@ type Logger struct {
 // New opens (or creates) the NDJSON audit log at path in append mode.
 // The file is created with mode 0600 so only the process owner can read it.
 func New(path string) (*Logger, error) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec // G304: path comes from CYBERFEED_AUDIT_LOG env var or a hardcoded default — operator-controlled, not user-controlled
 	if err != nil {
 		return nil, err
 	}
