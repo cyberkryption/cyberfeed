@@ -96,6 +96,9 @@ func GetEnabledFeedConfigs(db *sql.DB) ([]fetcher.FeedConfig, error) {
 
 // AddFeedConfig inserts a new feed config. Returns an error if the name already exists.
 func AddFeedConfig(db *sql.DB, name, url, parser, category string, refreshInterval int) error {
+	if err := fetcher.ValidateFeedURL(url); err != nil {
+		return fmt.Errorf("invalid feed URL: %w", err)
+	}
 	if parser == "" {
 		parser = "auto"
 	}
