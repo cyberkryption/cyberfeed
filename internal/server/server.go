@@ -357,7 +357,7 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 			"ip": ip, "username": username,
 			"feed_name": req.Name, "feed_url": req.URL, "reason": err.Error(),
 		})
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid feed URL: " + err.Error()})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "feed URL is not permitted"})
 		return
 	}
 	if req.Parser != "" && req.Parser != "auto" && req.Parser != "xml" && req.Parser != "csv" && req.Parser != "json" {
