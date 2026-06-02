@@ -294,6 +294,7 @@ export function FeedAdminModal({ opened, onClose, onRefresh }: FeedAdminModalPro
                 placeholder="Display name"
                 value={newName}
                 onChange={(e) => setNewName(e.currentTarget.value)}
+                maxLength={200}
                 size="xs"
                 style={{ flex: '0 0 180px' }}
                 ff="monospace"

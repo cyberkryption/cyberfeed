@@ -55,7 +55,7 @@ func ParseCSV(sourceName, sourceURL string, data []byte) ([]FeedItem, error) {
 			items = append(items, *item)
 		}
 	}
-	slog.Info("csv parsed", "source", sourceName, "data_rows", dataRows, "items_produced", len(items))
+	slog.Info("csv parsed", "source", strings.ReplaceAll(sourceName, "\n", "\\n"), "data_rows", dataRows, "items_produced", len(items))
 	return items, nil
 }
 

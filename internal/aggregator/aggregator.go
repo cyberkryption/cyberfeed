@@ -134,7 +134,7 @@ func (a *Aggregator) fetchFeeds(ctx context.Context, feeds []fetcher.FeedConfig)
 			if res.Err != nil {
 				status.Error = res.Err.Error()
 				status.OK = false
-				a.logger.Warn("feed fetch error", "feed", res.Config.Name, "error", res.Err)
+				a.logger.Warn("feed fetch error", "feed", strings.ReplaceAll(res.Config.Name, "\n", "\\n"), "error", res.Err)
 				a.mu.Lock()
 				a.failCount[res.Config.Name]++
 				status.ConsecutiveFailures = a.failCount[res.Config.Name]
@@ -143,7 +143,7 @@ func (a *Aggregator) fetchFeeds(ctx context.Context, feeds []fetcher.FeedConfig)
 				status.OK = true
 				status.ItemCount = len(res.Items)
 				items = append(items, res.Items...)
-				a.logger.Info("feed fetched", "feed", res.Config.Name, "items", len(res.Items))
+				a.logger.Info("feed fetched", "feed", strings.ReplaceAll(res.Config.Name, "\n", "\\n"), "items", len(res.Items))
 				a.mu.Lock()
 				a.failCount[res.Config.Name] = 0
 				a.mu.Unlock()

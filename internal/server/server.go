@@ -199,7 +199,9 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(auth.CookieName); err == nil {
 		// Resolve username before the session is deleted.
 		username, _ = auth.ValidateSession(s.db, cookie.Value)
-		_ = auth.Logout(s.db, cookie.Value)
+		if err := auth.Logout(s.db, cookie.Value); err != nil {
+			s.cfg.Logger.Warn("logout: failed to delete session from db", "error", err)
+		}
 	}
 	s.audit(audit.EventLogout, map[string]any{"ip": ip, "username": username})
 	secure := s.isSecure(r)
@@ -261,6 +263,10 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.NewPassword) < 8 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "new password must be at least 8 characters"})
+		return
+	}
+	if len(req.NewPassword) > 72 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "password too long (max 72 characters)"})
 		return
 	}
 
@@ -336,6 +342,10 @@ func (s *Server) handleAdminAddFeed(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Name == "" || req.URL == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name and url are required"})
+		return
+	}
+	if len(req.Name) > 200 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "feed name too long (max 200 characters)"})
 		return
 	}
 	if !strings.HasPrefix(req.URL, "http://") && !strings.HasPrefix(req.URL, "https://") {
