@@ -99,10 +99,22 @@ func (a *Aggregator) Snapshot() Snapshot {
 
 // activeFeeds returns the current feed list from the DB, falling back to the
 // compiled-in defaults when the store is unavailable or empty.
+// URLs are re-validated on load to reject any entries that predate the
+// store-layer validation added in AddFeedConfig (e.g. direct DB writes).
 func (a *Aggregator) activeFeeds() []fetcher.FeedConfig {
 	if a.store != nil {
 		if dynamic, err := store.GetEnabledFeedConfigs(a.store.DB()); err == nil && len(dynamic) > 0 {
-			return dynamic
+			valid := dynamic[:0]
+			for _, cfg := range dynamic {
+				if err := fetcher.ValidateFeedURL(cfg.URL); err != nil {
+					a.logger.Warn("skipping feed with invalid URL", "feed", cfg.Name, "error", err)
+					continue
+				}
+				valid = append(valid, cfg)
+			}
+			if len(valid) > 0 {
+				return valid
+			}
 		}
 	}
 	return fetcher.DefaultFeeds
