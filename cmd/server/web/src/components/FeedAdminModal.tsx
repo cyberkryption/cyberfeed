@@ -16,8 +16,6 @@ interface FeedAdminModalProps {
 
 const INTERVAL_OPTIONS = [
   { value: '0',    label: 'Global' },
-  { value: '5',    label: '5 min' },
-  { value: '15',   label: '15 min' },
   { value: '30',   label: '30 min' },
   { value: '60',   label: '1 hour' },
   { value: '360',  label: '6 hours' },
