@@ -227,7 +227,7 @@ func run() int {
 
 	addr := os.Getenv("CYBERFEED_ADDR")
 	if addr == "" {
-		addr = ":8888"
+		addr = "127.0.0.1:8888"
 	}
 
 	srv, err := server.New(server.Config{
@@ -258,7 +258,7 @@ func run() int {
 		var opErr *net.OpError
 		if errors.As(err, &opErr) && opErr.Op == "listen" {
 			logger.Error("port already in use — stop the existing cyberfeed process first",
-				"addr", ":8888", "error", err)
+				"addr", addr, "error", err)
 		} else {
 			logger.Error("server stopped", "error", err)
 		}
