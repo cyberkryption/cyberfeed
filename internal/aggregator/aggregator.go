@@ -115,7 +115,16 @@ func (a *Aggregator) activeFeeds() []fetcher.FeedConfig {
 func (a *Aggregator) fetchFeeds(ctx context.Context, feeds []fetcher.FeedConfig) ([]fetcher.FeedItem, []FeedStatus, error) {
 	results := make(chan fetcher.FeedResult, len(feeds))
 	for _, cfg := range feeds {
-		go fetcher.Worker(ctx, cfg, results)
+		cfg := cfg
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					a.logger.Error("worker goroutine panicked", "feed", cfg.Name, "panic", r)
+					results <- fetcher.FeedResult{Config: cfg, Err: fmt.Errorf("worker panicked: %v", r)}
+				}
+			}()
+			fetcher.Worker(ctx, cfg, results)
+		}()
 	}
 
 	items := make([]fetcher.FeedItem, 0, len(feeds)*20)
