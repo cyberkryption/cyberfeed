@@ -1,6 +1,6 @@
 module github.com/cyberkryption/cyberfeed
 
-go 1.25.0
+go 1.26.4
 
 require (
 	github.com/microcosm-cc/bluemonday v1.0.27
