@@ -87,7 +87,7 @@ func fetchJSON(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 
 	body, err := httpGet(ctx, cfg.URL, csvBodyLimit, csvFetchTimeout)
 	if err != nil {
-		if cached, cacheErr := os.ReadFile(cachePath); cacheErr == nil {
+		if cached, cacheErr := os.ReadFile(cachePath); cacheErr == nil { //nolint:gosec // cachePath is a fixed dir + URL-derived filename sanitised by csvFilename()
 			slog.Warn("JSON fetch failed, using cached copy", "feed", cfg.Name, "error", err)
 			body = cached
 		} else {
@@ -146,7 +146,7 @@ func fetchCSV(ctx context.Context, cfg FeedConfig) ([]FeedItem, error) {
 	body, err := httpGet(ctx, cfg.URL, csvBodyLimit, csvFetchTimeout)
 	if err != nil {
 		// Fall back to locally cached copy when the remote is unavailable.
-		cached, cacheErr := os.ReadFile(cachePath)
+		cached, cacheErr := os.ReadFile(cachePath) //nolint:gosec // cachePath is a fixed dir + URL-derived filename sanitised by csvFilename()
 		if cacheErr != nil {
 			return nil, fmt.Errorf("fetch %s failed and no local cache available: %w", cfg.Name, err)
 		}
@@ -184,7 +184,7 @@ func httpGet(ctx context.Context, url string, limit int64, timeout time.Duration
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer resp.Body.Close() //nolint:errcheck // body is fully read before close; error here doesn't affect returned data
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("unexpected HTTP status %d", resp.StatusCode)
