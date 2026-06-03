@@ -329,6 +329,13 @@ func (a *Aggregator) refreshDue(ctx context.Context, globalInterval time.Duratio
 		return err
 	}
 
+	// Guard against a cancellation that arrived after fetchFeeds returned:
+	// skip the snapshot update and store write so shutdown does not persist
+	// a partial result (CWE-754).
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return fmt.Errorf("refresh cancelled before commit: %w", ctxErr)
+	}
+
 	// Build lookup of refreshed feed names.
 	refreshed := make(map[string]bool, len(due))
 	for _, cfg := range due {
