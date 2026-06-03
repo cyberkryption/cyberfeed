@@ -152,6 +152,10 @@ func (a *Aggregator) fetchFeeds(ctx context.Context, feeds []fetcher.FeedConfig)
 				Category:  res.Config.Category,
 				Parser:    res.Config.Parser,
 			}
+			// Log before acquiring the lock: holding a.mu during a logger call
+			// risks lock-order inversion if the slog handler is synchronised
+			// internally (CWE-362). The failCount update is the only critical
+			// section; status fields are local to this goroutine.
 			if res.Err != nil {
 				status.Error = res.Err.Error()
 				status.OK = false
