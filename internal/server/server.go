@@ -607,6 +607,7 @@ func apiMiddleware(next http.Handler) http.Handler {
 			}
 		}
 		if r.Method == http.MethodOptions {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
