@@ -27,7 +27,11 @@ func init() {
 		"::1/128",          // IPv6 loopback
 		"fc00::/7",         // IPv6 unique-local (ULA)
 		"fe80::/10",        // IPv6 link-local
-		"::ffff:0:0/96",    // IPv4-mapped IPv6 addresses
+		// Note: ::ffff:0:0/96 (IPv4-mapped) is intentionally omitted. Go's
+		// net.IPNet.Contains calls To4() on IPv4-mapped addresses, so the
+		// existing IPv4 CIDRs above already catch them. Including ::ffff:0:0/96
+		// causes all public IPv4 addresses to be incorrectly blocked because
+		// the /96 mask reduces to a 0-bit mask after To4() conversion.
 	} {
 		_, block, err := net.ParseCIDR(cidr)
 		if err == nil {
