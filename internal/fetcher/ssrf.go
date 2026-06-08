@@ -93,21 +93,55 @@ func ValidateFeedURL(rawURL string) error {
 }
 
 // safeDialContext is used as the DialContext for the feed HTTP transport.
-// It re-validates the resolved IP immediately before opening a TCP connection,
-// blocking DNS-rebinding attacks where a hostname passes add-time validation
-// but subsequently resolves to a private address.
+// It blocks private/reserved addresses at dial time, preventing DNS-rebinding
+// attacks where a hostname passes add-time validation but subsequently resolves
+// to a private address.
+//
+// Go's http.Transport passes the original hostname — not a pre-resolved IP —
+// to DialContext. We therefore resolve the hostname ourselves, validate every
+// returned IP, and then dial directly to the validated IPs so no second
+// resolution can occur between our check and the connection.
 func safeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, fmt.Errorf("ssrf: malformed address %q: %w", addr, err)
 	}
 
-	// At dial time the address should already be a resolved IP literal.
-	ip := net.ParseIP(host)
-	if ip != nil && isPrivateIP(ip) {
-		return nil, fmt.Errorf("ssrf: connection to private address blocked (%s)", host)
+	// IP literal: validate and dial directly.
+	if ip := net.ParseIP(host); ip != nil {
+		if isPrivateIP(ip) {
+			return nil, fmt.Errorf("ssrf: connection to private address blocked (%s)", host)
+		}
+		return (&net.Dialer{}).DialContext(ctx, network, addr)
 	}
 
-	d := &net.Dialer{}
-	return d.DialContext(ctx, network, net.JoinHostPort(host, port))
+	// Hostname: resolve, validate every returned IP, then dial directly to
+	// the resolved IPs. Dialing by IP rather than hostname prevents the
+	// transport from issuing a second DNS query that could return a different
+	// (private) address after our validation (DNS rebinding).
+	ips, err := net.DefaultResolver.LookupHost(ctx, host)
+	if err != nil {
+		return nil, fmt.Errorf("ssrf: resolve %q: %w", host, err)
+	}
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("ssrf: %q resolved to no addresses", host)
+	}
+	for _, resolved := range ips {
+		if ip := net.ParseIP(resolved); ip != nil && isPrivateIP(ip) {
+			return nil, fmt.Errorf("ssrf: %q resolved to private address %s", host, resolved)
+		}
+	}
+
+	// Try each resolved IP in order; return on first success.
+	// TLS SNI is unaffected — the transport sets ServerName from the request
+	// URL, not the dial address.
+	var lastErr error
+	for _, resolved := range ips {
+		conn, dialErr := (&net.Dialer{}).DialContext(ctx, network, net.JoinHostPort(resolved, port))
+		if dialErr == nil {
+			return conn, nil
+		}
+		lastErr = dialErr
+	}
+	return nil, fmt.Errorf("ssrf: dial %q: %w", host, lastErr)
 }

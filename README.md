@@ -44,7 +44,7 @@ each in its own goroutine, and serves them via a React + Mantine web UI as a **s
 | NCSC Threat Reports | ncsc.gov.uk |
 | Microsoft Security Blog | microsoft.com |
 | Risky Business | risky.biz |
-| SANS Internet Storm Center | isc.sans.edu |
+| SANS ISC | isc.sans.edu |
 | PortSwigger Research | portswigger.net |
 | AWS Security Blog | aws.amazon.com |
 | TrustedSec | trustedsec.com |
