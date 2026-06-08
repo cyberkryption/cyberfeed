@@ -45,7 +45,7 @@ var DefaultFeeds = []FeedConfig{
 	{Name: "NCSC Threat Reports", URL: "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"},
 	{Name: "Microsoft Security Blog", URL: "https://www.microsoft.com/en-us/security/blog/feed/"},
 	{Name: "Risky Business", URL: "https://risky.biz/feeds/risky-business-news"},
-	{Name: "SANS Internet Storm Center", URL: "https://isc.sans.edu/rssfeed.xml"},
+	{Name: "SANS ISC", URL: "https://isc.sans.edu/rssfeed.xml"},
 	{Name: "PortSwigger Research", URL: "https://portswigger.net/research/rss"},
 	{Name: "AWS Security Blog", URL: "https://aws.amazon.com/blogs/security/feed/"},
 	{Name: "TrustedSec", URL: "https://www.trustedsec.com/feed.rss"},
