@@ -1,0 +1,13 @@
+README.MD
+CLAUDE.MD
+security-review.md
+ci.yml
+build.sh
+vibe-dev-setup
+go.mod
+go.sum
+install.ps1
+*.md
+*.txt
+*.html
+*.pdf
