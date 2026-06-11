@@ -221,6 +221,106 @@ Then open **http://localhost:8888**
 | `PATCH` | `/api/admin/feeds/{name}` | session | Enable/disable a feed or set its refresh interval |
 | `POST` | `/api/admin/refresh` | session | Trigger an immediate server-side refresh (rate-limited to once per 30 s) |
 
+## Running as a systemd service (Debian 13)
+
+### 1. Create a dedicated system user
+
+```bash
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin cyberfeed
+```
+
+### 2. Create directories
+
+```bash
+sudo mkdir -p /opt/cyberfeed /var/lib/cyberfeed /var/log/cyberfeed
+sudo chown -R cyberfeed:cyberfeed /opt/cyberfeed /var/lib/cyberfeed /var/log/cyberfeed
+```
+
+### 3. Copy the binary
+
+```bash
+sudo cp ./cyberfeed /opt/cyberfeed/cyberfeed
+sudo chmod 755 /opt/cyberfeed/cyberfeed
+```
+
+### 4. Create the service file
+
+Save the following to `/etc/systemd/system/cyberfeed.service`:
+
+```ini
+[Unit]
+Description=CyberFeed RSS aggregator
+Documentation=https://github.com/cyberkryption/cyberfeed
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cyberfeed
+Group=cyberfeed
+WorkingDirectory=/opt/cyberfeed
+
+# Binary
+ExecStart=/opt/cyberfeed/cyberfeed
+
+# Configuration
+Environment="CYBERFEED_ADDR=127.0.0.1:8888"
+Environment="CYBERFEED_DB=/var/lib/cyberfeed/cyberfeed.db"
+Environment="CYBERFEED_LOG_DIR=/var/log/cyberfeed"
+Environment="CYBERFEED_AUDIT_LOG=/var/log/cyberfeed/audit.log"
+Environment="CYBERFEED_REFRESH_INTERVAL=3600"
+Environment="CYBERFEED_TRUSTED_PROXIES=127.0.0.1/32"
+# Set these on first run to create the admin account, then remove them:
+#Environment="CYBERFEED_ADMIN_USERNAME=admin"
+#Environment="CYBERFEED_ADMIN_PASSWORD=<password>"
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/cyberfeed /var/log/cyberfeed
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 5. First run — create the admin account
+
+Uncomment the `CYBERFEED_ADMIN_USERNAME` and `CYBERFEED_ADMIN_PASSWORD` lines before starting for the first time, then remove them after the account is created:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start cyberfeed
+sudo systemctl stop cyberfeed
+# Remove the ADMIN_ lines from the service file
+sudo systemctl daemon-reload
+sudo systemctl enable --now cyberfeed
+```
+
+### 6. Check status and logs
+
+```bash
+sudo systemctl status cyberfeed
+sudo journalctl -u cyberfeed -f
+```
+
+### 7. Updating the binary
+
+```bash
+sudo systemctl stop cyberfeed
+sudo cp ./cyberfeed /opt/cyberfeed/cyberfeed
+sudo systemctl start cyberfeed
+```
+
+---
+
 ## Security
 
 - **Authentication** — Session cookies (`HttpOnly`, `Secure`, `SameSite=Strict`); bcrypt password hashing; sessions stored in SQLite
