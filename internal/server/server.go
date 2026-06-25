@@ -622,7 +622,10 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(v)
+	if err := enc.Encode(v); err != nil {
+		// Headers are already sent; log the failure so it is not invisible.
+		slog.Error("writeJSON: failed to encode response", "error", err)
+	}
 }
 
 // spaHandler serves embedded static assets and falls back to index.html for
