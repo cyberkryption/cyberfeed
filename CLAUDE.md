@@ -1,25 +1,5 @@
 # CLAUDE.md
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-## 0. Codebase Knowledge Graph
-
-**Before writing or modifying any code, read the knowledge graph.**
-
-The graphify knowledge graph for this codebase lives at:
-`https://github.com/cyberkryption/cyberfeed-graph/blob/main/GRAPH_REPORT.md`
-
-Use the GitHub MCP tool to fetch it at the start of every coding session:
-```
-mcp__github__get_file_contents owner=cyberkryption repo=cyberfeed-graph path=GRAPH_REPORT.md
-```
-
-The graph maps package relationships, key entry points, and highly connected modules.
-Consult it before searching files — it will tell you where to look.
-Skip this step only for trivial single-line fixes where the relevant file is already known.
-
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
